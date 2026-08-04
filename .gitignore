@@ -10,13 +10,31 @@ venv/
 
 # Artifacts: trained models, figures, metrics JSONs are large / regenerable
 artifacts/*
-!artifacts/.gitkeep
+!artifacts/**/.gitkeep
 
 # Raw and processed datasets are not checked into git (root-level only —
 # does not match src/data, which holds pipeline code, not data)
 /data/
 *.zip
 *.tar.gz
+
+# Model weights / exported models — must never be committed regardless of
+# where they end up (artifacts/ is already fully ignored above; these
+# patterns catch stray exports elsewhere, e.g. colab/ or repo root)
+*.h5
+*.hdf5
+*.keras
+*.tflite
+*.pb
+*.ckpt
+*.ckpt.*
+checkpoint
+
+# Secrets — API keys, env files, Kaggle credentials
+.env
+.env.*
+kaggle.json
+.kaggle/
 
 # Android build outputs
 android/**/build/
