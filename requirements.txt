@@ -1,5 +1,6 @@
 # Every dependency below MUST be pinned to an exact version (see CLAUDE.md
-# rule 9). No ranges, no "~=", no unpinned entries. This file is currently
-# empty of pins because no dependencies have been chosen or verified yet in
-# this session; the next session that adds a dependency must pin it exactly
-# here before using it anywhere in the project.
+# rule 9). No ranges, no "~=", no unpinned entries. Only packages actually
+# imported by committed code appear here — nothing is added preemptively.
+
+kaggle==2.2.4       # src/data/download.py — Kaggle API client for PlantVillage
+Pillow==12.3.0      # src/data/inventory.py — image dimension/corruption checks
