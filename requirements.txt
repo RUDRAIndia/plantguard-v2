@@ -1,0 +1,5 @@
+# Every dependency below MUST be pinned to an exact version (see CLAUDE.md
+# rule 9). No ranges, no "~=", no unpinned entries. This file is currently
+# empty of pins because no dependencies have been chosen or verified yet in
+# this session; the next session that adds a dependency must pin it exactly
+# here before using it anywhere in the project.

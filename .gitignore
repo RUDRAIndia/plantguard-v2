@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# Artifacts: trained models, figures, metrics JSONs are large / regenerable
+artifacts/*
+!artifacts/.gitkeep
+
+# Raw and processed datasets are not checked into git (root-level only —
+# does not match src/data, which holds pipeline code, not data)
+/data/
+*.zip
+*.tar.gz
+
+# Android build outputs
+android/**/build/
+android/**/.gradle/
+android/local.properties
+*.apk
+*.aab
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
