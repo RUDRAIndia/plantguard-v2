@@ -62,15 +62,20 @@ SPLIT_MANIFEST_DIR = DATA_ROOT / "splits"
 # unambiguously identified and extracted on its own. This project only ever
 # uses that "color" subtree.
 KAGGLE_DATASET_SLUG = "abdallahalidev/plantvillage-dataset"
-PLANTVILLAGE_EXPECTED_IMAGE_COUNT = 54_303
+# The canonical figure from the original PlantVillage paper is 54,303, but
+# Kaggle mirrors differ by a handful of files (observed: 54,305 images on
+# abdallahalidev/plantvillage-dataset as of this writing). This is a sanity
+# RANGE, not a loosened check — anything outside it still raises, and the
+# class-count check (see PLANTVILLAGE_CLASS_NAMES below) stays exact.
+PLANTVILLAGE_EXPECTED_IMAGE_COUNT_RANGE = (54_000, 54_400)
 
 # PlantDoc's classification split ("Cropped-PlantDoc") lives here. It is a
 # live GitHub repo, not a frozen Kaggle release, so unlike PlantVillage its
-# image count can drift by a handful of files over time — hence a tolerance
-# band instead of an exact-match requirement.
+# image count can drift by a handful of files over time. Canonical figure
+# cited by the PlantDoc paper is ~2,598; this range gives it the same
+# sanity-range treatment as PlantVillage above.
 PLANTDOC_REPO_URL = "https://github.com/pratikkayal/PlantDoc-Dataset"
-PLANTDOC_EXPECTED_IMAGE_COUNT = 2_598
-PLANTDOC_IMAGE_COUNT_TOLERANCE = 50
+PLANTDOC_EXPECTED_IMAGE_COUNT_RANGE = (2_548, 2_648)
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
 
@@ -203,6 +208,14 @@ TFLITE_CONFIG = {
     "output_dtype": "uint8",
 }
 TFLITE_OUTPUT_DIR = ARTIFACTS_DIR / "tflite"
+
+# ---------------------------------------------------------------------------
+# Dataset provenance
+# ---------------------------------------------------------------------------
+# Written by src/data/download.py after each successful download: source,
+# timestamp, observed counts, and a sha256 of the sorted relative file-path
+# list, so the exact dataset version behind any report is reproducible.
+DATASET_PROVENANCE_PATH = ARTIFACTS_DIR / "dataset_provenance.json"
 
 
 def get_git_commit_hash() -> str:
