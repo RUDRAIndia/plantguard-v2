@@ -60,6 +60,17 @@ feels like a shortcut.
 12. **Prefer small, single-purpose modules.** No file over ~300 lines. Split
     before you're forced to.
 
+13. **Never delete or overwrite existing data before a validated replacement
+    is fully in place.** Build the replacement to a temporary/staging
+    location, validate it there, and only then swap it in for the original
+    — the original must still exist, untouched, at the moment validation
+    runs. This applies to datasets, checkpoints, exported models, and
+    artifacts alike. (This rule exists because an earlier version of
+    `src/data/download.py` deleted an existing, valid 54,305-image
+    PlantVillage `color/` directory before validating its replacement, and
+    the replacement run turned out to be redundant — the valid data was
+    gone for nothing. See that module's docstring for the full incident.)
+
 ## Stack (locked)
 
 - **Language/runtime**: Python 3.11.
@@ -78,6 +89,29 @@ feels like a shortcut.
   Never trained on, never used for validation or model selection — evaluation
   against PlantDoc happens once, at the very end, alongside the PlantVillage
   test set.
+
+## Data storage on Colab: local disk vs Drive
+
+Google Drive, mounted via FUSE in a Colab session, writes and stats small
+files at only a few dozen per second — extracting the ~54,000-image
+PlantVillage `color/` set directly onto Drive takes about an hour, and
+*validating* an existing Drive copy by walking it file-by-file is just as
+slow. Because of this:
+
+- **All per-image work (download, extraction, counting, validation,
+  splitting, training reads) happens on the Colab VM's own local disk**
+  (`/content/data`), never on the Drive FUSE mount.
+- **Drive is cold storage only**: exactly one large tar file per dataset
+  (e.g. `plantvillage_color.tar`), plus a small `dataset_provenance.json`
+  sidecar. Nothing else ever gets written to Drive.
+- **Tradeoff**: local disk is wiped whenever the Colab runtime recycles, so
+  the Drive tar is what makes a session resumable — a later session copies
+  the single tar file back to local disk and untars it there (fast, one
+  sequential read) instead of re-downloading from Kaggle/git.
+- The check for "is there already a usable copy on Drive?" must stay fast
+  and walk-free (tar presence + size + the counts already recorded in
+  `dataset_provenance.json`), never a full scan of extracted files over
+  Drive — see rule 13 above and `src/data/download.py`'s module docstring.
 
 ## Known failure modes of PlantVillage
 

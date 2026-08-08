@@ -25,17 +25,42 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 ARTIFACTS_DIR = REPO_ROOT / "artifacts"
 
+# DATA_ROOT is where all per-image work happens: extraction, counting,
+# splitting, training reads. On Colab this MUST be the VM's own local disk,
+# never the Drive FUSE mount — Drive writes/stats small files at only a few
+# dozen per second, so any per-file operation (extracting ~54k images,
+# walking them to validate) is unusably slow or effectively never completes
+# there. See src/data/download.py's module docstring for the full
+# cold-storage-vs-local-disk design and CLAUDE.md's Drive rule.
 if IS_COLAB:
-    # Per project convention, all real data lives in this exact Drive path
-    # and is only ever touched from a Colab session (never downloaded to the
-    # local laptop).
-    DATA_ROOT = Path("/content/drive/MyDrive/plantguard-data")
+    DATA_ROOT = Path("/content/data")
+    # Drive is cold storage ONLY: a single tar per dataset, nothing else.
+    # It exists purely so a session can resume without re-downloading, since
+    # /content (DATA_ROOT above) is wiped whenever the Colab runtime recycles.
+    DRIVE_DATA_ROOT = Path("/content/drive/MyDrive/plantguard-data")
 else:
     # Local Windows dev machine: DATA_ROOT is only ever used to hold the
     # ≤200-image smoke-test subset (see SMOKE_MAX_IMAGES below). Full-size
     # dataset downloads must never be triggered here — see the IS_COLAB
-    # guard in src/data/download.py.
+    # guard in src/data/download.py. There is no Drive concept outside Colab.
     DATA_ROOT = REPO_ROOT / "data"
+    DRIVE_DATA_ROOT = None
+
+# Sidecar on Drive: a copy of DATASET_PROVENANCE_PATH (see below), written
+# alongside each tar so a *fresh* Colab session — a fresh git clone, whose
+# gitignored local artifacts/ has no history — can still read last session's
+# observed counts without walking any files. This is what makes the fast,
+# walk-free integrity check in src/data/download.py possible.
+DRIVE_PROVENANCE_PATH = (DRIVE_DATA_ROOT / "dataset_provenance.json") if DRIVE_DATA_ROOT else None
+PLANTVILLAGE_COLOR_TAR = (DRIVE_DATA_ROOT / "plantvillage_color.tar") if DRIVE_DATA_ROOT else None
+PLANTDOC_TAR = (DRIVE_DATA_ROOT / "plantdoc.tar") if DRIVE_DATA_ROOT else None
+
+# Coarse sanity floors for the fast Drive integrity check: catch an empty or
+# obviously-truncated tar without opening/reading it. Deliberately loose —
+# the authoritative check is the observed image/class counts recorded in
+# dataset_provenance.json, not tar size.
+MIN_PLANTVILLAGE_TAR_BYTES = 500_000_000
+MIN_PLANTDOC_TAR_BYTES = 20_000_000
 
 PLANTVILLAGE_DIR = DATA_ROOT / "plantvillage"
 # Only the "color" variant is ever used for training — never grayscale or
