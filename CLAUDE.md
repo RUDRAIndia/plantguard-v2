@@ -71,6 +71,13 @@ feels like a shortcut.
     the replacement run turned out to be redundant — the valid data was
     gone for nothing. See that module's docstring for the full incident.)
 
+14. **Any change to a src/ function invoked directly from a Colab notebook
+    cell (an "entrypoint") must be reflected in
+    `colab/01_data_setup.ipynb` in the same commit.** The notebook is the
+    single source of truth for what actually runs on Colab — a stale cell
+    silently calling removed/renamed code is exactly the kind of silent
+    failure rule 1 forbids.
+
 ## Stack (locked)
 
 - **Language/runtime**: Python 3.11.
