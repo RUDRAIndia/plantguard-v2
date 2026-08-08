@@ -172,6 +172,15 @@ HEALTHY_CLASS_NAMES = tuple(
     name for name in PLANTVILLAGE_CLASS_NAMES if name.split("___")[-1] == "healthy"
 )
 
+# Below this many images, a per-class metric (recall, F1, ...) for that class
+# is too noise-dominated to report as if it meant something — e.g. PlantDoc's
+# "Tomato two spotted spider mites leaf" class has only 2 images. Used by
+# src/data/mapping.py to flag which mapped PlantDoc classes can't actually
+# support a per-class metric, so that fact is recorded in the artifact rather
+# than discovered later when a report shows a suspiciously perfect/zero
+# per-class score.
+MIN_IMAGES_FOR_PER_CLASS_METRICS = 10
+
 # ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------

@@ -1,15 +1,41 @@
-"""Builds an explicit, hand-written PlantDoc-to-PlantVillage class mapping
-and reports how many PlantDoc images are usable for external evaluation.
+"""Hand-written PlantDoc-to-PlantVillage class mapping, plus the raw
+per-class image counts it's built from.
 
 Per CLAUDE.md rule 1, this mapping is a literal dictionary written by a
 human — there is no fuzzy/substring matching anywhere in this file. Where a
 PlantDoc class name isn't an exact match for a PlantVillage disease, the
 mapping was chosen by elimination against PlantVillage's known class list
-for that species (documented per-entry in MAPPING_NOTES), never guessed
-algorithmically. Produces artifacts/plantdoc_mapping.json.
+for that species, never guessed algorithmically. Every entry carries an
+explicit `confidence` tier (see CONFIDENCE_TIERS below) so a report built
+from this data never presents a judgment call as an unqualified fact.
+Report generation (breakdowns, coverage, the JSON artifact) lives in
+src/data/mapping_report.py.
+
+Verification of the "bare species name means a healthy leaf" convention
+(checked 2026-08-08 — literal citations, not an assumption): the
+PlantDoc-Dataset GitHub README does not itself state a naming rule, but the
+PlantDoc paper (Singh et al., "PlantDoc: A Dataset for Visual Plant Disease
+Detection", arXiv:1911.10317 / CoDS-COMAD 2020) does two things that
+corroborate it directly:
+  1. It states the dataset has "27 classes (17-10, disease-healthy)" — i.e.
+     exactly 17 disease classes and 10 healthy classes.
+  2. Its Figure 1 caption explicitly labels one example image "Blueberry
+     Healthy" — Blueberry has no disease class in this dataset at all, and
+     its only PlantDoc folder is the bare-species-named "Blueberry leaf".
+Cross-checked against the actual repository (pratikkayal/PlantDoc-Dataset,
+default branch, full recursive tree fetched via the GitHub API on
+2026-08-08): exactly 10 of its 28 class folders carry no disease/pest
+qualifier in their name (Apple leaf, Bell_pepper leaf, Blueberry leaf,
+Cherry leaf, Peach leaf, Raspberry leaf, Soyabean leaf, Strawberry leaf,
+Tomato leaf, grape leaf) — this matches the paper's "10 healthy classes"
+exactly, and the paper's own example directly identifies one of them
+("Blueberry") as healthy. This is treated as VERIFIED (see
+HEALTHY_CONVENTION_VERIFICATION in mapping_report.py), not merely assumed —
+but note the paper does not provide a full per-class table, so this is a
+count-and-example cross-check rather than an explicit blanket naming rule
+stated in the text.
 """
 
-import json
 import sys
 from pathlib import Path
 
@@ -18,10 +44,9 @@ from src import config  # noqa: E402
 
 # PlantDoc's "Cropped-PlantDoc" classification set has 28 class folders
 # across its train/ split (27 in test/ — it lacks "Tomato two spotted
-# spider mites leaf"). Per the PlantDoc paper, the 10 classes with no
-# disease qualifier in their name (e.g. "Apple leaf", "grape leaf") are its
-# healthy classes — that convention, not string similarity, is what backs
-# every "generic name -> ___healthy" mapping below.
+# spider mites leaf"). See the module docstring for how the healthy-class
+# convention behind every "generic name -> ___healthy" mapping below was
+# checked, not assumed.
 PLANTDOC_TO_PLANTVILLAGE = {
     "Apple Scab Leaf": "Apple___Apple_scab",
     "Apple leaf": "Apple___healthy",
@@ -53,47 +78,65 @@ PLANTDOC_TO_PLANTVILLAGE = {
     "grape leaf": "Grape___healthy",
 }
 
-# One-line rationale per entry, so a reader can audit the judgment calls
-# without re-deriving them. "exact" = the PlantDoc name names the same
-# disease as the PlantVillage class. "healthy-by-convention" = PlantDoc's
-# generic species-only name, mapped per the paper's documented healthy-class
-# convention. "only-option" = PlantVillage has exactly one disease class for
-# that species, so the PlantDoc disease name maps to it by elimination even
-# though the wording differs.
-MAPPING_NOTES = {
-    "Apple Scab Leaf": "exact",
-    "Apple leaf": "healthy-by-convention",
-    "Apple rust leaf": "exact (rust == Cedar_apple_rust, Apple's only rust class)",
-    "Bell_pepper leaf spot": "only-option (Bacterial_spot is bell pepper's only disease class)",
-    "Bell_pepper leaf": "healthy-by-convention",
-    "Blueberry leaf": "healthy-by-convention (Blueberry has no disease classes at all)",
-    "Cherry leaf": "healthy-by-convention",
-    "Corn Gray leaf spot": "exact (Gray leaf spot == Cercospora leaf spot Gray leaf spot)",
-    "Corn leaf blight": "only-option (Northern_Leaf_Blight is corn's only blight class)",
-    "Corn rust leaf": "exact",
-    "Peach leaf": "healthy-by-convention",
-    "Potato leaf early blight": "exact",
-    "Potato leaf late blight": "exact",
-    "Raspberry leaf": "healthy-by-convention (Raspberry has no disease classes at all)",
-    "Soyabean leaf": "healthy-by-convention (Soybean has no disease classes at all; spelling differs)",
-    "Squash Powdery mildew leaf": "exact (Squash has no healthy class at all)",
-    "Strawberry leaf": "healthy-by-convention (not Leaf_scorch)",
-    "Tomato Early blight leaf": "exact",
-    "Tomato Septoria leaf spot": "exact",
-    "Tomato leaf bacterial spot": "exact",
-    "Tomato leaf late blight": "exact",
-    "Tomato leaf mosaic virus": "exact",
-    "Tomato leaf yellow virus": "exact (yellow virus == Tomato_Yellow_Leaf_Curl_Virus)",
-    "Tomato leaf": "healthy-by-convention",
-    "Tomato mold leaf": "only-option (Leaf_Mold is tomato's only mold-related class)",
-    "Tomato two spotted spider mites leaf": "exact",
-    "grape leaf black rot": "exact",
-    "grape leaf": "healthy-by-convention",
+# The three confidence tiers a reader can trust at face value — no other
+# string is a valid value (see validate_mapping):
+#   "exact"      the PlantDoc name names the same disease as the
+#                PlantVillage class (wording may differ, e.g.
+#                "yellow virus" == "Tomato_Yellow_Leaf_Curl_Virus", but the
+#                condition genuinely corresponds).
+#   "convention" PlantDoc's generic species-only name, mapped to
+#                ___healthy per the verified convention documented in the
+#                module docstring.
+#   "forced"     PlantVillage has exactly one disease class for that
+#                species, so the PlantDoc name maps to it by elimination
+#                even though PlantDoc's label is less specific than (or
+#                worded differently from) the PlantVillage target — this is
+#                the weakest tier and the one most likely to introduce
+#                label noise into external-eval numbers.
+CONFIDENCE_TIERS = ("exact", "convention", "forced")
+
+# One entry per PLANTDOC_TO_PLANTVILLAGE key: the confidence tier plus a
+# one-line rationale, so a reader can audit every judgment call without
+# re-deriving it.
+MAPPING_METADATA = {
+    "Apple Scab Leaf": ("exact", "Scab is Apple's Apple_scab class."),
+    "Apple leaf": ("convention", "Bare species name; Apple has other disease classes, so this is the leftover healthy one."),
+    "Apple rust leaf": ("exact", "Rust == Cedar_apple_rust, Apple's only rust class."),
+    "Bell_pepper leaf spot": ("forced", "Bacterial_spot is bell pepper's only disease class; PlantDoc's generic 'leaf spot' doesn't name the pathogen."),
+    "Bell_pepper leaf": ("convention", "Bare species name; bell pepper has a disease class, so this is the leftover healthy one."),
+    "Blueberry leaf": ("convention", "Bare species name; Blueberry has no disease classes at all in PlantVillage, so this can only be healthy."),
+    "Cherry leaf": ("convention", "Bare species name; Cherry has other disease classes, so this is the leftover healthy one."),
+    "Corn Gray leaf spot": ("exact", "Gray leaf spot == Cercospora_leaf_spot Gray_leaf_spot."),
+    "Corn leaf blight": ("forced", "Northern_Leaf_Blight is corn's only blight class; PlantDoc's generic 'leaf blight' doesn't specify Northern vs. another blight."),
+    "Corn rust leaf": ("exact", "Rust == Common_rust_, corn's only rust class."),
+    "Peach leaf": ("convention", "Bare species name; Peach has a disease class, so this is the leftover healthy one."),
+    "Potato leaf early blight": ("exact", "Names the same condition as Potato's Early_blight class."),
+    "Potato leaf late blight": ("exact", "Names the same condition as Potato's Late_blight class."),
+    "Raspberry leaf": ("convention", "Bare species name; Raspberry has no disease classes at all in PlantVillage, so this can only be healthy."),
+    "Soyabean leaf": ("convention", "Bare species name (PlantDoc spelling); Soybean has no disease classes at all in PlantVillage, so this can only be healthy."),
+    "Squash Powdery mildew leaf": ("exact", "Powdery mildew is named directly; Squash has no healthy class at all in PlantVillage."),
+    "Strawberry leaf": ("convention", "Bare species name; Strawberry has a disease class (Leaf_scorch), so this is the leftover healthy one, not Leaf_scorch."),
+    "Tomato Early blight leaf": ("exact", "Names the same condition as Tomato's Early_blight class."),
+    "Tomato Septoria leaf spot": ("exact", "Names the same condition as Tomato's Septoria_leaf_spot class."),
+    "Tomato leaf bacterial spot": ("exact", "Names the same condition as Tomato's Bacterial_spot class."),
+    "Tomato leaf late blight": ("exact", "Names the same condition as Tomato's Late_blight class."),
+    "Tomato leaf mosaic virus": ("exact", "Names the same condition as Tomato's Tomato_mosaic_virus class."),
+    "Tomato leaf yellow virus": ("exact", "Yellow virus == Tomato_Yellow_Leaf_Curl_Virus."),
+    "Tomato leaf": ("convention", "Bare species name; Tomato has many disease classes, so this is the leftover healthy one."),
+    "Tomato mold leaf": ("forced", "Leaf_Mold is tomato's only mold-related class; PlantDoc's generic 'mold leaf' doesn't confirm it's specifically leaf mold rather than another mold."),
+    "Tomato two spotted spider mites leaf": ("exact", "Names the same condition as Tomato's Spider_mites Two-spotted_spider_mite class."),
+    "grape leaf black rot": ("exact", "Names the same condition as Grape's Black_rot class."),
+    "grape leaf": ("convention", "Bare species name; Grape has other disease classes, so this is the leftover healthy one."),
 }
 
-assert set(PLANTDOC_TO_PLANTVILLAGE) == set(MAPPING_NOTES), (
-    "PLANTDOC_TO_PLANTVILLAGE and MAPPING_NOTES must have identical keys."
+assert set(PLANTDOC_TO_PLANTVILLAGE) == set(MAPPING_METADATA), (
+    "PLANTDOC_TO_PLANTVILLAGE and MAPPING_METADATA must have identical keys."
 )
+for _plantdoc_name, (_confidence, _rationale) in MAPPING_METADATA.items():
+    assert _confidence in CONFIDENCE_TIERS, (
+        f"MAPPING_METADATA['{_plantdoc_name}'] has confidence '{_confidence}', "
+        f"expected exactly one of {CONFIDENCE_TIERS}."
+    )
 
 
 def validate_mapping() -> None:
@@ -135,61 +178,3 @@ def count_plantdoc_images() -> dict[str, int]:
             )
             counts[class_dir.name] = counts.get(class_dir.name, 0) + n
     return counts
-
-
-def build_report(image_counts: dict[str, int]) -> dict:
-    entries = []
-    usable_images = 0
-    unusable_images = 0
-
-    for plantdoc_class in sorted(image_counts):
-        pv_name = PLANTDOC_TO_PLANTVILLAGE.get(plantdoc_class)
-        note = MAPPING_NOTES.get(plantdoc_class, "unmapped: no dictionary entry")
-        count = image_counts[plantdoc_class]
-        pv_index = config.PLANTVILLAGE_CLASS_NAMES.index(pv_name) if pv_name else None
-
-        entries.append(
-            {
-                "plantdoc_class": plantdoc_class,
-                "plantvillage_class": pv_name,
-                "plantvillage_index": pv_index,
-                "note": note,
-                "image_count": count,
-            }
-        )
-        if pv_name is not None:
-            usable_images += count
-        else:
-            unusable_images += count
-
-    return {
-        "num_plantdoc_classes": len(entries),
-        "num_mapped_classes": sum(1 for e in entries if e["plantvillage_class"] is not None),
-        "num_unmapped_classes": sum(1 for e in entries if e["plantvillage_class"] is None),
-        "usable_images_for_external_eval": usable_images,
-        "unusable_images": unusable_images,
-        "mapping": entries,
-    }
-
-
-def main() -> None:
-    validate_mapping()
-    image_counts = count_plantdoc_images()
-    report = build_report(image_counts)
-
-    out_path = config.ARTIFACTS_DIR / "plantdoc_mapping.json"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-
-    print(
-        f"[mapping] {report['num_plantdoc_classes']} PlantDoc classes, "
-        f"{report['num_mapped_classes']} mapped, "
-        f"{report['num_unmapped_classes']} unmapped. "
-        f"{report['usable_images_for_external_eval']} images usable for "
-        f"external evaluation ({report['unusable_images']} unusable). "
-        f"Wrote {out_path}."
-    )
-
-
-if __name__ == "__main__":
-    main()
