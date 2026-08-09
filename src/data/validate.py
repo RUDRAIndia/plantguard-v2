@@ -54,6 +54,22 @@ def validate_plantvillage_dir(path: Path) -> tuple:
     return False, detail
 
 
+def validate_negatives_dir(path: Path, expected_count_range: tuple) -> tuple:
+    """Returns (is_valid, detail). Image count must fall inside
+    `expected_count_range`. No fixed-class-list check — negatives aren't
+    the 38 PlantVillage classes, so there's no canonical class set to
+    compare against.
+    """
+    if not path.is_dir():
+        return False, f"{path} does not exist."
+
+    image_count = count_images(path)
+    lo, hi = expected_count_range
+    if lo <= image_count <= hi:
+        return True, f"{image_count} images"
+    return False, f"found {image_count} images, expected {lo}-{hi}"
+
+
 def validate_plantdoc_dirs(train_dir: Path, test_dir: Path) -> tuple:
     """Returns (is_valid, detail). Image count (train+test combined) must
     fall inside config.PLANTDOC_EXPECTED_IMAGE_COUNT_RANGE.

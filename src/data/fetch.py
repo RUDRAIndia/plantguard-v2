@@ -102,6 +102,102 @@ def download_plantvillage_color_from_kaggle(staging_dir: Path) -> Path:
     return color_dir
 
 
+def _extract_named_dir_only(zip_path: Path, extract_root: Path, dir_name: str) -> Path:
+    """Extracts only the members that live under a directory named exactly
+    `dir_name` inside the zip (at any depth — same "search, don't guess"
+    approach as _extract_color_only, since a third-party Kaggle dataset's
+    exact internal nesting can't be relied on without a live download).
+    """
+    with zipfile.ZipFile(zip_path) as zf:
+        all_names = zf.namelist()
+        matching_roots = set()
+        for name in all_names:
+            parts = Path(name.replace("\\", "/")).parts
+            for i, part in enumerate(parts):
+                if part == dir_name:
+                    matching_roots.add("/".join(parts[: i + 1]))
+                    break
+
+        if len(matching_roots) == 0:
+            raise RuntimeError(
+                f"No directory named exactly '{dir_name}' found inside {zip_path}."
+            )
+        if len(matching_roots) == 1:
+            matched_root = next(iter(matching_roots))
+        else:
+            # Some third-party Kaggle archives nest a directory inside
+            # another of the exact same name (e.g. "seg_train/seg_train/...")
+            # — a known real quirk, not a hypothetical. That's unambiguous
+            # (the deepest one is always the actual leaf-category holder),
+            # so only raise when the matches AREN'T a strict nesting chain.
+            ordered = sorted(matching_roots, key=len)
+            is_nesting_chain = all(
+                deeper == shallow or deeper.startswith(shallow + "/")
+                for shallow, deeper in zip(ordered, ordered[1:])
+            )
+            if not is_nesting_chain:
+                raise RuntimeError(
+                    f"Found {len(matching_roots)} directories named exactly "
+                    f"'{dir_name}' inside {zip_path}: {sorted(matching_roots)}. "
+                    "Ambiguous — refusing to guess which one is correct."
+                )
+            matched_root = ordered[-1]
+
+        members = [
+            name
+            for name in all_names
+            if name.replace("\\", "/") == matched_root
+            or name.replace("\\", "/").startswith(matched_root + "/")
+        ]
+        print(f"[fetch] Extracting {len(members)} files under '{matched_root}/' only.")
+        zf.extractall(path=extract_root, members=members)
+
+    return extract_root / matched_root
+
+
+def download_negatives_from_kaggle(staging_dir: Path) -> Path:
+    """Downloads config.NEGATIVES_KAGGLE_SLUG (zip, not auto-unzipped) to
+    local disk and extracts only the config.NEGATIVES_SOURCE_SUBDIR_NAME
+    subtree. Returns the path to that extracted directory, still inside
+    staging — not yet subsampled, validated, or moved.
+    """
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+    except ImportError as exc:
+        raise RuntimeError(
+            "The 'kaggle' package is not installed. Install it from "
+            "requirements.txt before running this script."
+        ) from exc
+
+    try:
+        api = KaggleApi()
+        api.authenticate()
+    except Exception as exc:
+        raise RuntimeError(
+            "Kaggle authentication failed. Ensure kaggle.json has been "
+            "uploaded and installed to ~/.kaggle/kaggle.json with mode 600 "
+            "before running this script."
+        ) from exc
+
+    print(
+        f"[fetch] Downloading Kaggle dataset '{config.NEGATIVES_KAGGLE_SLUG}' "
+        f"to local disk at {staging_dir} (zip only, not yet extracted) ..."
+    )
+    api.dataset_download_files(config.NEGATIVES_KAGGLE_SLUG, path=str(staging_dir), unzip=False, quiet=False)
+
+    zip_matches = list(staging_dir.glob("*.zip"))
+    if len(zip_matches) != 1:
+        raise RuntimeError(
+            f"Expected exactly one .zip file in {staging_dir} after Kaggle "
+            f"download, found {len(zip_matches)}: {zip_matches}."
+        )
+    zip_path = zip_matches[0]
+
+    source_dir = _extract_named_dir_only(zip_path, staging_dir, config.NEGATIVES_SOURCE_SUBDIR_NAME)
+    zip_path.unlink()
+    return source_dir
+
+
 def clone_plantdoc_to(staging_dir: Path) -> str:
     """Clones the PlantDoc classification repo directly to local disk.
     Returns the cloned commit hash.

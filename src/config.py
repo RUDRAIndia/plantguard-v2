@@ -238,6 +238,74 @@ assert abs(_split_sum - 1.0) < 1e-9, (
 SMOKE_MAX_IMAGES = 200
 
 # ---------------------------------------------------------------------------
+# tf.data pipeline (src/data/pipeline.py)
+# ---------------------------------------------------------------------------
+BATCH_SIZE = 32
+
+# Canonical pre-crop size for the deterministic val/test path (resize then
+# center-crop to IMAGE_SIZE) — PlantVillage's native resolution, so val/test
+# never sees the aggressive scale/aspect jitter train's random-resized-crop
+# applies. See src/data/pipeline.py's module docstring.
+VAL_TEST_RESIZE_SIZE = 256
+
+# Cap on the train shuffle buffer. Shuffling happens over lightweight path
+# strings *before* decode (cheap even near the full training-set size), so
+# this cap only matters as a safety ceiling, not a memory/quality tradeoff
+# knob — the actual buffer used is min(len(train_paths), this).
+SHUFFLE_BUFFER_SIZE = 50_000
+
+# Local-disk cache for decoded-but-unaugmented train images (never Drive —
+# see the Drive-vs-local-disk rule above). Caching here, before augmentation,
+# avoids re-decoding JPEGs every epoch while still letting shuffle order and
+# every augmentation re-randomize fresh each epoch.
+TRAIN_DECODE_CACHE_DIR = DATA_ROOT / "cache" / "train_decoded"
+
+# ---------------------------------------------------------------------------
+# Augmentation (src/data/augment.py) — train split only, NEVER val/test.
+# ---------------------------------------------------------------------------
+# PlantVillage is a single detached leaf on a uniform lab background at fixed
+# framing/lighting/focus. Every value below exists to break one specific
+# shortcut a model could learn from that studio setup rather than the lesion
+# itself — see src/data/augment.py's module docstring for the explicit
+# op-to-shortcut pairing (CLAUDE.md's "Known failure modes" section).
+AUGMENT_CROP_SCALE_RANGE = (0.65, 1.0)
+AUGMENT_CROP_RATIO_RANGE = (0.8, 1.25)
+AUGMENT_ROTATION_FACTOR = 0.0833  # keras RandomRotation factor -> ~30 degrees
+AUGMENT_BRIGHTNESS_MAX_DELTA = 0.25
+AUGMENT_CONTRAST_RANGE = (0.7, 1.3)
+AUGMENT_SATURATION_RANGE = (0.6, 1.4)
+AUGMENT_HUE_MAX_DELTA = 0.08
+AUGMENT_GAUSSIAN_BLUR_PROBABILITY = 0.3
+AUGMENT_GAUSSIAN_BLUR_SIGMA_RANGE = (0.5, 1.5)
+AUGMENT_GAUSSIAN_BLUR_KERNEL_SIZE = 5
+AUGMENT_JPEG_QUALITY_RANGE = (30, 90)
+AUGMENT_RANDOM_ERASING_PROBABILITY = 0.25
+AUGMENT_RANDOM_ERASING_AREA_RANGE = (0.02, 0.15)
+AUGMENT_RANDOM_ERASING_ASPECT_RANGE = (0.3, 3.3)
+
+# ---------------------------------------------------------------------------
+# Not-a-leaf negative set (src/data/negatives.py) — OOD rejection calibration
+# only, never a training label, never one of the 38 classes.
+# ---------------------------------------------------------------------------
+# Kaggle mirror of Intel's "Natural Scenes" dataset: ~25k photos of ordinary,
+# non-leaf scenes (buildings, forest, glacier, mountain, sea, street) —
+# chosen because it reuses the same KaggleApi + zip-extraction machinery
+# already in src/data/fetch.py rather than adding a new raw-URL download
+# path, and it's about as visually unlike a studio leaf macro shot as an
+# "ordinary photograph" dataset gets.
+NEGATIVES_KAGGLE_SLUG = "puneet6060/intel-image-classification"
+# Name of the directory inside the Kaggle archive holding the labeled
+# training images. Located the same defensive way as fetch.py's
+# "color"-directory search (exact name match, raise if 0 or >1 found) since
+# the exact nesting can't be verified without a live download.
+NEGATIVES_SOURCE_SUBDIR_NAME = "seg_train"
+NEGATIVES_DIR = DATA_ROOT / "negatives"
+NEGATIVES_TARGET_COUNT = 3_000
+NEGATIVES_EXPECTED_IMAGE_COUNT_RANGE = (2_900, 3_100)
+NEGATIVES_TAR = (DRIVE_DATA_ROOT / "negatives.tar") if DRIVE_DATA_ROOT else None
+MIN_NEGATIVES_TAR_BYTES = 20_000_000
+
+# ---------------------------------------------------------------------------
 # Candidate model architectures
 # ---------------------------------------------------------------------------
 # All five are keras.applications names for small, mobile-friendly backbones
@@ -250,6 +318,29 @@ CANDIDATE_MODELS = (
     "MobileNetV3Large",
     "EfficientNetB0",
     "EfficientNetV2B0",
+)
+
+# ---------------------------------------------------------------------------
+# Per-backbone preprocessing (src/data/pipeline.py)
+# ---------------------------------------------------------------------------
+# Each of the 5 CANDIDATE_MODELS expects its own normalization (e.g.
+# MobileNetV2 rescales to [-1, 1]; EfficientNet's preprocess_input is close
+# to a no-op because the model itself embeds a Rescaling/Normalization
+# layer) — using one normalization for all five would silently feed several
+# of them mis-scaled input. Stored as plain (module, function) name strings,
+# not live imports, so this file stays importable without TensorFlow
+# installed; src/data/pipeline.py resolves the callable via importlib.
+PREPROCESSING_ENTRYPOINTS = {
+    "MobileNetV2": ("keras.applications.mobilenet_v2", "preprocess_input"),
+    "MobileNetV3Small": ("keras.applications.mobilenet_v3", "preprocess_input"),
+    "MobileNetV3Large": ("keras.applications.mobilenet_v3", "preprocess_input"),
+    "EfficientNetB0": ("keras.applications.efficientnet", "preprocess_input"),
+    "EfficientNetV2B0": ("keras.applications.efficientnet_v2", "preprocess_input"),
+}
+assert set(PREPROCESSING_ENTRYPOINTS) == set(CANDIDATE_MODELS), (
+    "PREPROCESSING_ENTRYPOINTS must have exactly one entry per CANDIDATE_MODELS "
+    f"entry. Missing: {set(CANDIDATE_MODELS) - set(PREPROCESSING_ENTRYPOINTS)}. "
+    f"Unexpected: {set(PREPROCESSING_ENTRYPOINTS) - set(CANDIDATE_MODELS)}."
 )
 
 # ---------------------------------------------------------------------------
