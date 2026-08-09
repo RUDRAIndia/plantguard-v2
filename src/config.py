@@ -299,6 +299,11 @@ NEGATIVES_KAGGLE_SLUG = "puneet6060/intel-image-classification"
 # "color"-directory search (exact name match, raise if 0 or >1 found) since
 # the exact nesting can't be verified without a live download.
 NEGATIVES_SOURCE_SUBDIR_NAME = "seg_train"
+# The six category directories the resolved seg_train subtree must contain
+# directly (after src/data/fetch.py's wrapper-directory descent) — asserted
+# exactly, not fuzzily, so a Kaggle-side layout/category change is caught
+# immediately rather than silently subsampling from the wrong level again.
+NEGATIVES_EXPECTED_CATEGORIES = ("buildings", "forest", "glacier", "mountain", "sea", "street")
 NEGATIVES_DIR = DATA_ROOT / "negatives"
 NEGATIVES_TARGET_COUNT = 3_000
 NEGATIVES_EXPECTED_IMAGE_COUNT_RANGE = (2_900, 3_100)

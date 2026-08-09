@@ -119,6 +119,15 @@ def download_negatives(force: bool = False) -> Path:
     else:
         source_dir = fetch.download_negatives_from_kaggle(staging_dir)
         class_dirs = [p for p in source_dir.iterdir() if p.is_dir()]
+        found_categories = sorted(p.name for p in class_dirs)
+        expected_categories = sorted(config.NEGATIVES_EXPECTED_CATEGORIES)
+        if found_categories != expected_categories:
+            raise RuntimeError(
+                f"Expected exactly the categories {expected_categories} directly "
+                f"inside {source_dir}, found {found_categories}. The Kaggle "
+                f"archive layout for '{config.NEGATIVES_KAGGLE_SLUG}' may have "
+                "changed — inspect it manually before proceeding."
+            )
         selected_files = _deterministic_subsample(class_dirs, config.NEGATIVES_TARGET_COUNT, config.SEED)
 
         candidate = staging_dir / "negatives"

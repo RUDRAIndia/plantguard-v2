@@ -14,6 +14,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src import config  # noqa: E402
 
 
+def _resolve_through_wrapper_dirs(path: Path) -> Path:
+    """Descends through a chain of wrapper directories — each one holding
+    no image files directly and exactly one subdirectory — until reaching
+    the level whose contents are the real, image-bearing category
+    directories. Some Kaggle archives extract with an extra directory level
+    (e.g. intel-image-classification's "seg_train/seg_train/<category>/...",
+    a known real quirk, not a hypothetical) rather than the category
+    directories sitting directly inside the requested folder; this
+    normalizes that away without hardcoding how many levels deep any
+    particular archive happens to nest. Shared by every _extract_*_only
+    helper below rather than duplicated per dataset.
+    """
+    current = path
+    while True:
+        entries = list(current.iterdir())
+        has_images = any(
+            p.is_file() and p.suffix.lower() in config.IMAGE_EXTENSIONS for p in entries
+        )
+        subdirs = [p for p in entries if p.is_dir()]
+        if has_images or len(subdirs) != 1:
+            return current
+        current = subdirs[0]
+
+
 def _extract_color_only(zip_path: Path, extract_root: Path) -> Path:
     """Extracts only the members that live under a directory named exactly
     "color" inside the zip (at any depth, exact path-component match — the
@@ -57,7 +81,7 @@ def _extract_color_only(zip_path: Path, extract_root: Path) -> Path:
         )
         zf.extractall(path=extract_root, members=members)
 
-    return extract_root / color_root
+    return _resolve_through_wrapper_dirs(extract_root / color_root)
 
 
 def download_plantvillage_color_from_kaggle(staging_dir: Path) -> Path:
@@ -104,9 +128,12 @@ def download_plantvillage_color_from_kaggle(staging_dir: Path) -> Path:
 
 def _extract_named_dir_only(zip_path: Path, extract_root: Path, dir_name: str) -> Path:
     """Extracts only the members that live under a directory named exactly
-    `dir_name` inside the zip (at any depth — same "search, don't guess"
-    approach as _extract_color_only, since a third-party Kaggle dataset's
-    exact internal nesting can't be relied on without a live download).
+    `dir_name` inside the zip (at any depth, exact path-component match —
+    same "search, don't guess" approach as _extract_color_only, since a
+    third-party Kaggle dataset's exact internal nesting can't be relied on
+    without a live download). Any *further* wrapper-directory nesting below
+    `dir_name` itself (e.g. a doubled "seg_train/seg_train/...") is handled
+    separately, after extraction, by _resolve_through_wrapper_dirs.
     """
     with zipfile.ZipFile(zip_path) as zf:
         all_names = zf.namelist()
@@ -122,26 +149,13 @@ def _extract_named_dir_only(zip_path: Path, extract_root: Path, dir_name: str) -
             raise RuntimeError(
                 f"No directory named exactly '{dir_name}' found inside {zip_path}."
             )
-        if len(matching_roots) == 1:
-            matched_root = next(iter(matching_roots))
-        else:
-            # Some third-party Kaggle archives nest a directory inside
-            # another of the exact same name (e.g. "seg_train/seg_train/...")
-            # — a known real quirk, not a hypothetical. That's unambiguous
-            # (the deepest one is always the actual leaf-category holder),
-            # so only raise when the matches AREN'T a strict nesting chain.
-            ordered = sorted(matching_roots, key=len)
-            is_nesting_chain = all(
-                deeper == shallow or deeper.startswith(shallow + "/")
-                for shallow, deeper in zip(ordered, ordered[1:])
+        if len(matching_roots) > 1:
+            raise RuntimeError(
+                f"Found {len(matching_roots)} directories named exactly "
+                f"'{dir_name}' inside {zip_path}: {sorted(matching_roots)}. "
+                "Ambiguous — refusing to guess which one is correct."
             )
-            if not is_nesting_chain:
-                raise RuntimeError(
-                    f"Found {len(matching_roots)} directories named exactly "
-                    f"'{dir_name}' inside {zip_path}: {sorted(matching_roots)}. "
-                    "Ambiguous — refusing to guess which one is correct."
-                )
-            matched_root = ordered[-1]
+        matched_root = next(iter(matching_roots))
 
         members = [
             name
@@ -152,7 +166,7 @@ def _extract_named_dir_only(zip_path: Path, extract_root: Path, dir_name: str) -
         print(f"[fetch] Extracting {len(members)} files under '{matched_root}/' only.")
         zf.extractall(path=extract_root, members=members)
 
-    return extract_root / matched_root
+    return _resolve_through_wrapper_dirs(extract_root / matched_root)
 
 
 def download_negatives_from_kaggle(staging_dir: Path) -> Path:
