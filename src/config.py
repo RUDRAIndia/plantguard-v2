@@ -182,6 +182,27 @@ HEALTHY_CLASS_NAMES = tuple(
 MIN_IMAGES_FOR_PER_CLASS_METRICS = 10
 
 # ---------------------------------------------------------------------------
+# Deduplication (src/data/dedupe.py)
+# ---------------------------------------------------------------------------
+# imagehash.phash's hash_size parameter: produces a hash_size x hash_size
+# bit hash (64 bits at the default of 8). Spelled out explicitly here
+# (rather than left as an implicit library default) so the bit-count is
+# auditable and DEDUPE_HAMMING_THRESHOLD below can be sanity-checked against
+# it.
+PHASH_SIZE = 8
+
+# Hamming distance threshold for treating two images as the same physical
+# leaf. 0 means bit-identical; larger values catch near-duplicates such as
+# rotations and slight crops, at the cost of being more likely to also catch
+# two genuinely different leaves that happen to look similar. 5 is a
+# conservative middle ground for a 64-bit phash.
+DEDUPE_HAMMING_THRESHOLD = 5
+assert 0 <= DEDUPE_HAMMING_THRESHOLD <= PHASH_SIZE * PHASH_SIZE, (
+    f"DEDUPE_HAMMING_THRESHOLD ({DEDUPE_HAMMING_THRESHOLD}) must be between "
+    f"0 and the phash bit count ({PHASH_SIZE * PHASH_SIZE}) inclusive."
+)
+
+# ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------
 SEED = 42
