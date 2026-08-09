@@ -4,6 +4,7 @@ tests/conftest.py (see that file's docstring for why synthetic, not real,
 data).
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -62,3 +63,84 @@ def test_split_deterministic_for_same_seed(synthetic_dataset):
     first = split.build_split(image_to_group)
     second = split.build_split(image_to_group)
     assert first == second, "re-running build_split with the same seed/input produced a different split"
+
+
+def _write_fake_provenance(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "plantvillage": {
+                    "observed_image_count": 100,
+                    "observed_class_count": 3,
+                    "sha256_of_sorted_relative_paths": "deadbeef",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _fake_module_paths(tmp_path: Path) -> tuple:
+    module_paths = tuple(tmp_path / name for name in split._SPLIT_PRODUCING_MODULE_NAMES)
+    for path in module_paths:
+        path.write_text("# original content\n", encoding="utf-8")
+    return module_paths
+
+
+def test_unrelated_module_edit_does_not_change_split_input_hash(tmp_path, monkeypatch):
+    provenance_path = tmp_path / "dataset_provenance.json"
+    _write_fake_provenance(provenance_path)
+    monkeypatch.setattr(config, "DATASET_PROVENANCE_PATH", provenance_path)
+    module_paths = _fake_module_paths(tmp_path)
+
+    unrelated = tmp_path / "sanity.py"
+    unrelated.write_text("# unrelated module, not part of the split\n", encoding="utf-8")
+
+    hash_before = split.compute_split_input_hash(module_paths)
+    unrelated.write_text("# unrelated module, EDITED\n", encoding="utf-8")
+    hash_after = split.compute_split_input_hash(module_paths)
+
+    assert hash_before == hash_after, "editing a module outside module_paths must never change the hash"
+
+
+def test_seed_change_invalidates_split_input_hash(tmp_path, monkeypatch):
+    provenance_path = tmp_path / "dataset_provenance.json"
+    _write_fake_provenance(provenance_path)
+    monkeypatch.setattr(config, "DATASET_PROVENANCE_PATH", provenance_path)
+    module_paths = _fake_module_paths(tmp_path)
+
+    hash_before = split.compute_split_input_hash(module_paths)
+    monkeypatch.setattr(config, "SEED", config.SEED + 1)
+    hash_after = split.compute_split_input_hash(module_paths)
+
+    assert hash_before != hash_after, "changing config.SEED must invalidate the split input hash"
+
+
+def test_hamming_threshold_change_invalidates_split_input_hash(tmp_path, monkeypatch):
+    provenance_path = tmp_path / "dataset_provenance.json"
+    _write_fake_provenance(provenance_path)
+    monkeypatch.setattr(config, "DATASET_PROVENANCE_PATH", provenance_path)
+    module_paths = _fake_module_paths(tmp_path)
+
+    hash_before = split.compute_split_input_hash(module_paths)
+    monkeypatch.setattr(config, "DEDUPE_HAMMING_THRESHOLD", config.DEDUPE_HAMMING_THRESHOLD + 1)
+    hash_after = split.compute_split_input_hash(module_paths)
+
+    assert hash_before != hash_after, (
+        "changing config.DEDUPE_HAMMING_THRESHOLD must invalidate the split input hash"
+    )
+
+
+def test_split_producing_module_content_change_invalidates_split_input_hash(tmp_path, monkeypatch):
+    provenance_path = tmp_path / "dataset_provenance.json"
+    _write_fake_provenance(provenance_path)
+    monkeypatch.setattr(config, "DATASET_PROVENANCE_PATH", provenance_path)
+    module_paths = _fake_module_paths(tmp_path)
+
+    hash_before = split.compute_split_input_hash(module_paths)
+    module_paths[0].write_text("# EDITED content\n", encoding="utf-8")
+    hash_after = split.compute_split_input_hash(module_paths)
+
+    assert hash_before != hash_after, (
+        "editing one of the actual split-producing modules must invalidate the split input hash"
+    )

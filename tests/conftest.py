@@ -7,6 +7,7 @@ own tiny fixture on disk and monkeypatch src.config to point at it, rather
 than depending on real downloaded data.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -81,6 +82,27 @@ def synthetic_dataset(tmp_path_factory, monkeypatch_module_scoped):
     monkeypatch_module_scoped.setattr(config, "PLANTVILLAGE_CLASS_NAMES", FAKE_CLASSES)
     monkeypatch_module_scoped.setattr(config, "NUM_CLASSES", len(FAKE_CLASSES))
     monkeypatch_module_scoped.setattr(config, "ARTIFACTS_DIR", artifacts_dir)
+
+    # split_report.py's manifest now includes split.compute_split_inputs(),
+    # which reads PlantVillage's recorded provenance — DATASET_PROVENANCE_PATH
+    # is precomputed at config.py's import time from the real ARTIFACTS_DIR,
+    # so it needs its own monkeypatch rather than following the ARTIFACTS_DIR
+    # patch above.
+    provenance_path = artifacts_dir / "dataset_provenance.json"
+    provenance_path.write_text(
+        json.dumps(
+            {
+                "plantvillage": {
+                    "source": "synthetic-test-fixture",
+                    "observed_image_count": total_images,
+                    "observed_class_count": len(FAKE_CLASSES),
+                    "sha256_of_sorted_relative_paths": "synthetic-fixture-hash",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch_module_scoped.setattr(config, "DATASET_PROVENANCE_PATH", provenance_path)
 
     dedupe.main()
     split_report.main()

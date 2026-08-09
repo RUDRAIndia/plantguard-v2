@@ -24,6 +24,7 @@ vary between runs) — every collection that feeds randomness or output
 order is explicitly sorted first.
 """
 
+import hashlib
 import json
 import random
 import sys
@@ -195,3 +196,80 @@ def _validate_split(splits: dict[str, list[str]], image_to_group: dict[str, str]
     }
     if incomplete:
         raise AssertionError(f"Classes missing from at least one split: {incomplete}.")
+
+
+# The only modules whose logic actually determines build_split's output —
+# NOT the whole repo. A commit to any other file (e.g. sanity.py, a
+# pipeline.py cache tweak) must never invalidate an otherwise-still-valid
+# split; see compute_split_inputs below and src/data/pipeline.py's
+# load_splits, which recomputes and compares this at load time.
+_SPLIT_PRODUCING_MODULE_NAMES = ("dedupe.py", "phash_cluster.py", "split.py")
+
+
+def _default_split_producing_module_paths() -> tuple:
+    directory = Path(__file__).resolve().parent
+    return tuple(directory / name for name in _SPLIT_PRODUCING_MODULE_NAMES)
+
+
+def compute_split_inputs(module_paths: tuple = None) -> dict:
+    """Returns a dict of exactly the inputs that determine build_split's
+    output, broken out by name (not just one opaque combined hash) so a
+    mismatch can be diagnosed field-by-field later:
+      - config.SEED, TRAIN_FRACTION, VAL_FRACTION, TEST_FRACTION,
+        PHASH_SIZE, DEDUPE_HAMMING_THRESHOLD
+      - the recorded PlantVillage dataset provenance (image/class counts
+        and the sha256 of its sorted relative file paths) — i.e. which
+        files exist, never *when* or *how* they were downloaded
+      - the sha256 of each module in `module_paths` (default:
+        dedupe.py, phash_cluster.py, split.py — the only code that
+        actually produces the split). Overridable so tests can point this
+        at throwaway files instead of hashing/mutating real repo source.
+
+    Raises if PlantVillage's provenance hasn't been recorded yet
+    (src/data/download.py must run first) — this hash is meaningless
+    without knowing which dataset it was computed against.
+    """
+    if module_paths is None:
+        module_paths = _default_split_producing_module_paths()
+
+    provenance_path = config.DATASET_PROVENANCE_PATH
+    if not provenance_path.is_file():
+        raise FileNotFoundError(
+            f"{provenance_path} not found. Run src/data/download.py first — "
+            "the split input hash needs PlantVillage's recorded provenance."
+        )
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    if "plantvillage" not in provenance:
+        raise RuntimeError(
+            f"{provenance_path} has no 'plantvillage' entry. Run "
+            "src/data/download.py first."
+        )
+    pv_entry = provenance["plantvillage"]
+
+    return {
+        "seed": config.SEED,
+        "train_fraction": config.TRAIN_FRACTION,
+        "val_fraction": config.VAL_FRACTION,
+        "test_fraction": config.TEST_FRACTION,
+        "phash_size": config.PHASH_SIZE,
+        "dedupe_hamming_threshold": config.DEDUPE_HAMMING_THRESHOLD,
+        "plantvillage_provenance": {
+            "image_count": pv_entry["observed_image_count"],
+            "class_count": pv_entry["observed_class_count"],
+            "sha256_of_sorted_relative_paths": pv_entry["sha256_of_sorted_relative_paths"],
+        },
+        "module_sha256": {
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in module_paths
+        },
+    }
+
+
+def hash_split_inputs(split_inputs: dict) -> str:
+    """Pure: canonical-JSON-then-sha256 of a compute_split_inputs() dict, so
+    the same inputs always hash identically regardless of dict key order."""
+    return hashlib.sha256(json.dumps(split_inputs, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def compute_split_input_hash(module_paths: tuple = None) -> str:
+    """Convenience: hash_split_inputs(compute_split_inputs(module_paths))."""
+    return hash_split_inputs(compute_split_inputs(module_paths))

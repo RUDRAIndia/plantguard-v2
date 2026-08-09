@@ -3,9 +3,16 @@ train/val/test splits. Preprocessing parameters are read from src/config.py
 only, so they can be embedded verbatim in exported model metadata.
 
 Never re-derives the split — always reads artifacts/splits.json (written by
-src/data/split_report.py) and refuses to run against a split recorded under
-a different git commit than the one currently checked out (CLAUDE.md rule 1:
-fail loudly rather than silently train against a stale or unreviewed split).
+src/data/split_report.py) and refuses to run if the recorded
+split_input_hash doesn't match a fresh recomputation of
+split.compute_split_inputs() (CLAUDE.md rule 1: fail loudly rather than
+silently train against a stale or unreviewed split). Deliberately NOT a
+repo-wide git commit comparison: split_input_hash covers only the seed,
+split fractions, phash/dedupe params, PlantVillage's recorded provenance,
+and the file contents of dedupe.py/phash_cluster.py/split.py — the only
+things that can actually change build_split's output — so an unrelated
+commit elsewhere (e.g. a pipeline.py cache tweak, a sanity.py fix) never
+forces a needless ~20-minute re-dedupe on Colab.
 
 Train and val/test are two structurally different pipelines, not the same
 pipeline with an "augment or not" flag bolted on:
@@ -33,17 +40,40 @@ import tensorflow as tf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src import config  # noqa: E402
-from src.data import augment  # noqa: E402
+from src.data import augment, split  # noqa: E402
 
 AUTOTUNE = tf.data.AUTOTUNE
 
 
+def _diff_split_inputs(recorded: dict, current: dict) -> str:
+    """Best-effort field-by-field diff of two compute_split_inputs() dicts,
+    for naming exactly which input changed in a mismatch error. Handles one
+    level of nesting (plantvillage_provenance, module_sha256) since that's
+    the actual shape compute_split_inputs() produces.
+    """
+    differences = []
+    for key in sorted(set(recorded) | set(current)):
+        old_val, new_val = recorded.get(key), current.get(key)
+        if isinstance(old_val, dict) or isinstance(new_val, dict):
+            old_val, new_val = old_val or {}, new_val or {}
+            for sub_key in sorted(set(old_val) | set(new_val)):
+                if old_val.get(sub_key) != new_val.get(sub_key):
+                    differences.append(
+                        f"{key}.{sub_key} changed ({old_val.get(sub_key)!r} -> {new_val.get(sub_key)!r})"
+                    )
+        elif old_val != new_val:
+            differences.append(f"{key} changed ({old_val!r} -> {new_val!r})")
+    return "; ".join(differences) if differences else "an unspecified input changed"
+
+
 def load_splits() -> tuple:
     """Reads artifacts/splits.json. Raises if it's missing, or if its
-    manifest's git_commit_hash doesn't match the currently checked-out
-    commit — the split must be regenerated (src/data/split_report.py) any
-    time the repo has moved on, rather than silently training against a
-    split from an unknown prior state.
+    recorded split_input_hash doesn't match a fresh recomputation of
+    split.compute_split_inputs() — the split must be regenerated
+    (src/data/split_report.py) any time one of those specific inputs has
+    actually changed, rather than silently training against a split of
+    unknown provenance. Does NOT compare git commit hashes — see this
+    module's docstring for why that was too coarse.
     """
     path = config.ARTIFACTS_DIR / "splits.json"
     if not path.is_file():
@@ -54,17 +84,34 @@ def load_splits() -> tuple:
     data = json.loads(path.read_text(encoding="utf-8"))
     manifest, splits = data["manifest"], data["splits"]
 
-    current_commit = config.get_git_commit_hash()
-    recorded_commit = manifest["git_commit_hash"]
-    if recorded_commit != current_commit:
+    recorded_hash = manifest.get("split_input_hash")
+    if recorded_hash is None:
         raise RuntimeError(
-            f"{path} was generated at commit {recorded_commit}, but the "
-            f"currently checked-out commit is {current_commit}. Re-run "
-            "src/data/split_report.py to regenerate the split before "
-            "building the pipeline, rather than training against a split "
-            "of unknown provenance relative to the current code."
+            f"{path}'s manifest has no 'split_input_hash' — it was written "
+            "before this guard existed. Re-run src/data/split_report.py to "
+            "regenerate it."
         )
-    return splits, manifest
+
+    current_inputs = split.compute_split_inputs()
+    if split.hash_split_inputs(current_inputs) == recorded_hash:
+        return splits, manifest
+
+    recorded_inputs = manifest.get("split_inputs")
+    if recorded_inputs is not None:
+        raise RuntimeError(
+            f"{path} is stale: {_diff_split_inputs(recorded_inputs, current_inputs)}. "
+            "Re-run src/data/dedupe.py and src/data/split_report.py to "
+            "regenerate the split."
+        )
+    raise RuntimeError(
+        f"{path} is stale (split_input_hash mismatch), but its manifest has "
+        "no 'split_inputs' breakdown to name which input changed. This hash "
+        "covers: config.SEED/TRAIN_FRACTION/VAL_FRACTION/TEST_FRACTION/"
+        "PHASH_SIZE/DEDUPE_HAMMING_THRESHOLD, PlantVillage's recorded "
+        "dataset provenance, and the contents of dedupe.py, "
+        "phash_cluster.py, and split.py. Re-run src/data/dedupe.py and "
+        "src/data/split_report.py to regenerate the split."
+    )
 
 
 def _paths_and_labels(relative_paths: list) -> tuple:

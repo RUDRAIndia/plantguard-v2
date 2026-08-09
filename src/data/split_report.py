@@ -3,6 +3,12 @@ src/data/split.py's grouped/stratified allocation, and is the notebook-
 facing entrypoint (mirrors src/data/mapping.py vs. mapping_report.py: the
 core allocation algorithm stays a pure, testable module; this module owns
 I/O and reporting).
+
+The manifest records split.compute_split_inputs()'s breakdown and its hash
+(split_inputs / split_input_hash) — the actual validity guard
+src/data/pipeline.py checks at load time — plus git_commit_hash, kept only
+as informational metadata now (see split.py's module-level comment on why
+a repo-wide commit hash was too coarse a guard).
 """
 
 import json
@@ -25,6 +31,7 @@ def _per_class_split_counts(splits: dict[str, list[str]]) -> dict[str, dict[str,
 def build_manifest(splits: dict[str, list[str]], image_to_group: dict[str, str]) -> dict:
     num_images = len(image_to_group)
     per_class_counts = _per_class_split_counts(splits)
+    split_inputs = split.compute_split_inputs()
 
     return {
         "seed": config.SEED,
@@ -39,7 +46,13 @@ def build_manifest(splits: dict[str, list[str]], image_to_group: dict[str, str])
             name: round(len(splits[name]) / num_images, 4) for name in split.SPLIT_NAMES
         },
         "per_class_split_counts": per_class_counts,
+        # Informational only — src/data/pipeline.py no longer validates
+        # against this (a commit anywhere in the repo used to invalidate
+        # every split, including changes that couldn't possibly affect it).
+        # The actual validity guard is split_input_hash/split_inputs below.
         "git_commit_hash": config.get_git_commit_hash(),
+        "split_input_hash": split.hash_split_inputs(split_inputs),
+        "split_inputs": split_inputs,
     }
 
 
@@ -59,7 +72,8 @@ def write_markdown(manifest: dict, path: Path) -> None:
         f"- Seed: **{manifest['seed']}**",
         f"- Images: **{manifest['num_images']}**",
         f"- Duplicate groups: **{manifest['num_groups']}**",
-        f"- Git commit: `{manifest['git_commit_hash']}`",
+        f"- Git commit (informational only, not validated): `{manifest['git_commit_hash']}`",
+        f"- Split input hash (validated by src/data/pipeline.py): `{manifest['split_input_hash']}`",
         f"- Target fractions: train {target['train']:.0%}, val {target['val']:.0%}, test {target['test']:.0%}",
         f"- Achieved overall fractions: train {achieved['train']:.2%}, "
         f"val {achieved['val']:.2%}, test {achieved['test']:.2%}",
