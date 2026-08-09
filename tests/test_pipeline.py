@@ -21,12 +21,16 @@ MODEL_NAME = "MobileNetV2"
 
 @pytest.fixture(scope="module")
 def pipeline_env(synthetic_dataset, tmp_path_factory, monkeypatch_module_scoped):
-    """Points the train-side disk cache at a throwaway tmp dir instead of
-    the real repo's config.TRAIN_DECODE_CACHE_DIR, so running these tests
-    never writes cache files into the working tree.
+    """Points the train- and val-side disk caches at throwaway tmp dirs
+    instead of the real repo's config.TRAIN_DECODE_CACHE_DIR /
+    VAL_DECODE_CACHE_DIR, so running these tests never writes cache files
+    into the working tree.
     """
     monkeypatch_module_scoped.setattr(
         config, "TRAIN_DECODE_CACHE_DIR", tmp_path_factory.mktemp("train_cache")
+    )
+    monkeypatch_module_scoped.setattr(
+        config, "VAL_DECODE_CACHE_DIR", tmp_path_factory.mktemp("val_cache")
     )
     return synthetic_dataset
 
@@ -98,6 +102,21 @@ def test_augmentation_changes_pixels_but_val_pipeline_is_static(pipeline_env):
     assert bool(tf.reduce_all(tf.equal(val_a, val_b))), (
         "the deterministic val/test path produced different pixels across two calls"
     )
+
+
+def test_sample_paths_deterministic_and_bounded():
+    paths = [f"ClassA/img{i}.jpg" for i in range(50)]
+
+    first = pipeline._sample_paths(paths, n=10, seed=config.SEED)
+    second = pipeline._sample_paths(paths, n=10, seed=config.SEED)
+
+    assert len(first) == 10
+    assert len(set(first)) == 10
+    assert set(first) <= set(paths)
+    assert first == second
+
+    with pytest.raises(ValueError):
+        pipeline._sample_paths(paths, n=51, seed=config.SEED)
 
 
 def test_negatives_deterministic_subsample(tmp_path):

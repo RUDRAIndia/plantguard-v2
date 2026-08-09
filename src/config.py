@@ -260,6 +260,14 @@ SHUFFLE_BUFFER_SIZE = 50_000
 # every augmentation re-randomize fresh each epoch.
 TRAIN_DECODE_CACHE_DIR = DATA_ROOT / "cache" / "train_decoded"
 
+# Same idea for val: read once per epoch across many epochs of real
+# training, so caching the decoded image pays for itself repeatedly — own
+# directory so it can never collide with train's cache prefix. Test has no
+# such repeat-read pattern (CLAUDE.md rule 2: touched exactly once, at the
+# end), so it deliberately gets no disk cache at all — see
+# src/data/pipeline.py's build_datasets.
+VAL_DECODE_CACHE_DIR = DATA_ROOT / "cache" / "val_decoded"
+
 # ---------------------------------------------------------------------------
 # Augmentation (src/data/augment.py) — train split only, NEVER val/test.
 # ---------------------------------------------------------------------------
