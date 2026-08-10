@@ -541,9 +541,23 @@ HEAD_LEARNING_RATE = 1e-3
 BACKBONE_LR_FACTOR = 0.1
 
 PHASE1_EPOCHS = 15
-PHASE2_EPOCHS = 30
+# Measured on the first real Kaggle run (T4, MobileNetV3Small — the
+# smallest of the 5 CANDIDATE_MODELS, so the fastest per epoch and the
+# most epoch-budget-generous case): 207 s/epoch. At that rate PHASE1_EPOCHS
+# (15) is ~52 min; the original PHASE2_EPOCHS of 30 would have added
+# another ~1h45 per model, ~2.5h per model / ~12.5 GPU-hours for all 5 —
+# too much of an 8-day remaining budget that still has Android work ahead.
+# 12 keeps phase 2 to ~41 min worst-case (no early stop), ~1.5h/model,
+# ~7.75 GPU-hours across all 5 in the worst case, less in practice since
+# EARLY_STOPPING_PATIENCE below usually triggers first.
+PHASE2_EPOCHS = 12
 
-EARLY_STOPPING_PATIENCE = 5
+# Lowered from 5: at PHASE2_EPOCHS=12, a patience of 5 lets a plateaued run
+# burn nearly half its remaining epoch budget before stopping. 3 stops a
+# plateaued run sooner without meaningfully undercutting a still-improving
+# one (REDUCE_LR_PATIENCE below fires first at 3 anyway, so an EarlyStopping
+# patience of 3 mostly just means "stop if the LR drop didn't help either").
+EARLY_STOPPING_PATIENCE = 3
 REDUCE_LR_FACTOR = 0.5
 REDUCE_LR_PATIENCE = 3
 REDUCE_LR_MIN_LR = 1e-6

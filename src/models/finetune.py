@@ -12,6 +12,16 @@ it by c. Getting a genuinely smaller backbone step therefore requires a
 second optimizer instance with its own, smaller learning rate — this module
 implements that via a custom train_step, the pattern Keras' own
 "Customizing what happens in fit()" guide uses for multiple optimizers.
+
+train_step unpacks its `data` argument with keras.utils.unpack_x_y_
+sample_weight rather than `x, y = data`: src/models/phases.py's
+run_phase2 passes class_weight to fit(), which Keras converts into a
+per-sample sample_weight and hands train_step as a 3-tuple
+(x, y, sample_weight), not the 2-tuple phase 1's stock fit() path (and an
+earlier version of this function) assumed. That sample_weight is then
+threaded through to compute_loss() explicitly — dropping it there would
+silently disable class weighting for phase 2 only, with no error, just a
+worse per-class recall discovered much later.
 """
 
 import sys
@@ -42,10 +52,22 @@ class DifferentialLRModel(keras.Model):
         self.backbone_optimizer = None  # caller must set before fit()
 
     def train_step(self, data):
-        x, y = data
+        # Keras's own unpacking helper, not a hand-rolled `x, y = data`:
+        # fit() hands train_step a 2-tuple (x, y) when no class_weight/
+        # sample_weight is given, but a 3-tuple (x, y, sample_weight) when
+        # one is — class_weight gets converted to a per-sample weight array
+        # before it ever reaches here. `x, y = data` breaks the moment any
+        # caller passes class_weight (phase 2 does; phase 1's stock fit()
+        # path handles both shapes internally, which is exactly why this
+        # only ever broke here). unpack_x_y_sample_weight also covers the
+        # bare-`x` and 1-tuple cases Keras's data adapters can produce.
+        x, y, sample_weight = keras.utils.unpack_x_y_sample_weight(data)
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)
-            loss = self.compute_loss(y=y, y_pred=y_pred)
+            # sample_weight MUST reach compute_loss — silently dropping it
+            # here would disable class weighting in this phase only, with
+            # no error, just a worse-looking per-class recall.
+            loss = self.compute_loss(x=x, y=y, y_pred=y_pred, sample_weight=sample_weight)
 
         trainable_vars = self.trainable_variables
         gradients = tape.gradient(loss, trainable_vars)
@@ -73,7 +95,7 @@ class DifferentialLRModel(keras.Model):
             if metric.name == "loss":
                 metric.update_state(loss)
             else:
-                metric.update_state(y, y_pred)
+                metric.update_state(y, y_pred, sample_weight=sample_weight)
         return {m.name: m.result() for m in self.metrics}
 
 
