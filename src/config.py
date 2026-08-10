@@ -296,10 +296,26 @@ VAL_DECODE_CACHE_DIR = DATA_ROOT / "cache" / "val_decoded"
 AUGMENT_CROP_SCALE_RANGE = (0.8, 1.0)
 AUGMENT_CROP_RATIO_RANGE = (0.8, 1.25)
 AUGMENT_ROTATION_FACTOR = 0.0833  # keras RandomRotation factor -> ~30 degrees
-AUGMENT_BRIGHTNESS_MAX_DELTA = 0.25
+# Lowered from 0.25 to 0.15 after visual inspection of the 64-image
+# augmentation_grid.png sanity grid: two tiles (a Blueberry healthy and a
+# Tomato Early blight) were darkened to nearly black, with no leaf detail or
+# lesion visible at all. tf.image.random_brightness draws its delta from
+# [-AUGMENT_BRIGHTNESS_MAX_DELTA, +AUGMENT_BRIGHTNESS_MAX_DELTA], so this
+# single symmetric constant is also each image's darkening floor; 0.15 still
+# darkens meaningfully (real field photos are often shot in shade) without
+# driving a dim lab image's already-low pixel values to near-black.
+AUGMENT_BRIGHTNESS_MAX_DELTA = 0.15
 AUGMENT_CONTRAST_RANGE = (0.7, 1.3)
 AUGMENT_SATURATION_RANGE = (0.6, 1.4)
-AUGMENT_HUE_MAX_DELTA = 0.08
+# Halved from 0.08 to 0.04 after the same sanity grid showed an Apple
+# Apple_scab tile hue-shifted so far the leaf appeared blue. Hue jitter is
+# the main defence against background-shortcut learning (decorrelating
+# background/leaf colour from the label), but chlorosis and yellowing are
+# themselves diagnostic for several classes — pushing hue too far destroys
+# that genuine colour signal along with the shortcut, so this range trades
+# some background decorrelation strength to keep real disease colour cues
+# intact.
+AUGMENT_HUE_MAX_DELTA = 0.04
 AUGMENT_GAUSSIAN_BLUR_PROBABILITY = 0.3
 AUGMENT_GAUSSIAN_BLUR_SIGMA_RANGE = (0.5, 1.5)
 AUGMENT_GAUSSIAN_BLUR_KERNEL_SIZE = 5
