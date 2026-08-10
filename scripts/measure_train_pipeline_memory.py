@@ -37,9 +37,11 @@ from src.data import pipeline
 NUM_IMAGES = config.SMOKE_MAX_IMAGES  # CLAUDE.md rule 10: local cap
 FAKE_CLASS = "FakeSpecies___fake_disease"
 
-# Decoded float32 [IMAGE_SIZE, IMAGE_SIZE, 3] footprint per image, the same
-# quantity the SHUFFLE_BUFFER_SIZE comment in src/config.py is sized against.
-BYTES_PER_DECODED_IMAGE = config.IMAGE_SIZE * config.IMAGE_SIZE * 3 * 4
+# Decoded uint8 [IMAGE_SIZE, IMAGE_SIZE, 3] footprint per image — what the
+# shuffle buffer actually holds now (decode is uint8, and the uint8->float32
+# conversion happens after shuffle; see src/data/pipeline.py's module
+# docstring and config.py's SHUFFLE_BUFFER_SIZE comment).
+BYTES_PER_DECODED_IMAGE = config.IMAGE_SIZE * config.IMAGE_SIZE * 3
 # Generous multiple of NUM_IMAGES worth of decoded tensors, to absorb TF's
 # one-time graph-tracing/allocator overhead on the first pull without
 # masking a real full-materialization regression (which would blow well
@@ -47,17 +49,18 @@ BYTES_PER_DECODED_IMAGE = config.IMAGE_SIZE * config.IMAGE_SIZE * 3 * 4
 BUDGET_BYTES = 25 * NUM_IMAGES * BYTES_PER_DECODED_IMAGE
 
 
-def _make_dataset(root: Path) -> list:
+def _make_dataset(root: Path) -> tuple:
     class_dir = root / FAKE_CLASS
     class_dir.mkdir(parents=True)
-    relative_paths = []
+    paths, labels = [], []
     for i in range(NUM_IMAGES):
         color = ((i * 37) % 256, (i * 91) % 256, (i * 53) % 256)
         img = Image.new("RGB", (config.IMAGE_SIZE, config.IMAGE_SIZE), color=color)
-        name = f"img{i}.jpg"
-        img.save(class_dir / name)
-        relative_paths.append(f"{FAKE_CLASS}/{name}")
-    return relative_paths
+        path = class_dir / f"img{i}.jpg"
+        img.save(path)
+        paths.append(str(path))
+        labels.append(0)
+    return paths, labels
 
 
 def main() -> None:
@@ -67,21 +70,19 @@ def main() -> None:
         tmp_path = Path(tmp)
         color_dir = tmp_path / "color"
         color_dir.mkdir()
-        relative_paths = _make_dataset(color_dir)
-
-        config.PLANTVILLAGE_COLOR_DIR = color_dir
-        config.PLANTVILLAGE_CLASS_NAMES = (FAKE_CLASS,)
+        paths, labels = _make_dataset(color_dir)
 
         rss_before = process.memory_info().rss
         ds = pipeline._build_pipeline(
-            relative_paths,
+            paths,
+            labels,
             training=True,
             batch_size=config.BATCH_SIZE,
             preprocess_fn=None,
             shuffle=True,
             cache_prefix=tmp_path / "cache" / "train",
         )
-        images, labels = next(iter(ds))
+        images, labels_batch = next(iter(ds))
         rss_after = process.memory_info().rss
 
     growth_bytes = rss_after - rss_before
@@ -89,7 +90,7 @@ def main() -> None:
     budget_mb = BUDGET_BYTES / (1024 * 1024)
 
     print(f"[measure] images={NUM_IMAGES} shuffle_buffer={min(NUM_IMAGES, config.SHUFFLE_BUFFER_SIZE)}")
-    print(f"[measure] first batch shape={tuple(images.shape)} labels={tuple(labels.shape)}")
+    print(f"[measure] first batch shape={tuple(images.shape)} labels={tuple(labels_batch.shape)}")
     print(f"[measure] RSS before={rss_before / (1024 * 1024):.1f} MB after={rss_after / (1024 * 1024):.1f} MB")
     print(f"[measure] growth={growth_mb:.1f} MB budget={budget_mb:.1f} MB")
 

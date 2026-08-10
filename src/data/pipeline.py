@@ -22,21 +22,37 @@ pipeline with an "augment or not" flag bolted on:
   - val/test: deterministic resize-then-center-crop only, never any
     randomness.
 
-Every image stays in float32 [0, 1] through decode/augment/crop; the final
-per-backbone `preprocess_input` (config.PREPROCESSING_ENTRYPOINTS) expects
-raw [0, 255] input, so `_finalize` rescales by 255 immediately before
-applying it — skipping that step would silently feed every backbone
-mis-scaled input.
+`_decode` reads/decodes to uint8 [0, 255] at native resolution — no resize,
+no float conversion yet. Any on-disk cache (config.TRAIN_DECODE_CACHE_ENABLED
+/ VAL_DECODE_CACHE_DIR) sits immediately after decode, so it stores that
+uint8 representation (~4x smaller than caching float32 would): PlantVillage's
+real 38,013-image train split at native 256x256 resolution is ~7.5 GB as
+uint8 versus ~29.9 GB as float32 — the latter would exhaust a 19.5 GB Kaggle
+/kaggle/working quota partway through epoch 1 (see config.py's
+TRAIN_DECODE_CACHE_ENABLED comment for the full numbers, including val's).
+`_to_float` (uint8 -> float32 [0, 1]) always runs strictly *after* the cache
+read (and, for train, after shuffle too — shuffling uint8 elements is
+correspondingly ~4x cheaper in RAM than shuffling float32 ones), so it never
+changes what pixel values reach augmentation or the deterministic val/test
+crop: converting to float immediately at decode time versus later, after a
+cache/shuffle round-trip that only reorders and stores/restores the same
+uint8 bytes, is bit-identical either way — a pure function of the same
+input, just computed later. The final per-backbone `preprocess_input`
+(config.PREPROCESSING_ENTRYPOINTS) expects raw [0, 255] input, so `_finalize`
+rescales the float32 [0, 1] image by 255 immediately before applying it —
+skipping that step would silently feed every backbone mis-scaled input.
 """
 
 import importlib
 import json
 import random
+import shutil
 import sys
 from collections import Counter
 from pathlib import Path
 
 import tensorflow as tf
+from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src import config  # noqa: E402
@@ -189,13 +205,79 @@ def _resolve_preprocess_fn(model_name: str):
 
 
 def _decode(path: tf.Tensor) -> tf.Tensor:
-    """Reads and decodes an image file to float32 [0, 1], native resolution
-    (no resize yet). Uses tf.io.decode_image (not a JPEG-only decoder)
-    because config.IMAGE_EXTENSIONS also allows .png.
+    """Reads and decodes an image file to uint8 [0, 255], native resolution
+    — no resize, no float conversion (see _to_float below; this module's
+    docstring covers why that step is deferred). Uses tf.io.decode_image
+    (not a JPEG-only decoder) because config.IMAGE_EXTENSIONS also allows
+    .png. decode_image's own default output dtype is uint8 for both.
     """
     raw = tf.io.read_file(path)
-    image = tf.io.decode_image(raw, channels=3, expand_animations=False)
+    return tf.io.decode_image(raw, channels=3, expand_animations=False)
+
+
+def _to_float(image: tf.Tensor) -> tf.Tensor:
+    """Converts a uint8 [0, 255] image (as produced by _decode, and as
+    stored by the on-disk cache) to float32 [0, 1]. Deliberately its own
+    step, not fused into _decode, so a cache can sit between the two and
+    store the ~4x-smaller uint8 representation — see this module's
+    docstring for why deferring this conversion doesn't change the pixel
+    values augmentation or the val/test crop ultimately see.
+    """
     return tf.image.convert_image_dtype(image, tf.float32)
+
+
+def _nearest_existing_ancestor(path: Path) -> Path:
+    current = path
+    while not current.exists():
+        if current.parent == current:
+            raise RuntimeError(
+                f"No existing ancestor directory found for {path} — cannot "
+                "check free disk space before writing a cache there."
+            )
+        current = current.parent
+    return current
+
+
+def _projected_uint8_cache_bytes(paths: list) -> int:
+    """Projects the on-disk cache size (uint8, one byte per channel) for the
+    whole split, measured from the FIRST image's actual native resolution —
+    read for real via PIL rather than assumed (CLAUDE.md rule 1: measure,
+    don't assume PlantVillage is uniformly 256x256 just because that's
+    documented elsewhere). An estimate, not an exact figure: a split with
+    genuinely mixed resolutions would make this approximate, and tf.data's
+    own on-disk cache format adds a small amount of per-record framing
+    overhead on top of the raw pixel bytes this counts — see
+    config.CACHE_DISK_SPACE_SAFETY_MARGIN.
+    """
+    with Image.open(paths[0]) as first_image:
+        width, height = first_image.size
+    return len(paths) * height * width * 3
+
+
+def _assert_cache_will_fit(paths: list, cache_prefix: Path) -> None:
+    """Refuses to start writing a decode cache that free disk space can't
+    actually hold — CLAUDE.md rule 1: a training run that dies on a full
+    disk 40 minutes into epoch 1 is exactly the late, expensive failure this
+    guards against. Checked against the nearest existing ancestor directory
+    of `cache_prefix` (its own directory doesn't exist yet the first time
+    this runs).
+    """
+    projected_bytes = _projected_uint8_cache_bytes(paths)
+    required_bytes = int(projected_bytes * config.CACHE_DISK_SPACE_SAFETY_MARGIN)
+    existing_ancestor = _nearest_existing_ancestor(cache_prefix.parent)
+    free_bytes = shutil.disk_usage(existing_ancestor).free
+
+    if required_bytes > free_bytes:
+        margin_pct = round((config.CACHE_DISK_SPACE_SAFETY_MARGIN - 1) * 100)
+        raise RuntimeError(
+            f"Refusing to build the on-disk decode cache at {cache_prefix}: "
+            f"projected size is {projected_bytes / 1e9:.2f} GB for "
+            f"{len(paths)} images ({required_bytes / 1e9:.2f} GB including a "
+            f"{margin_pct}% safety margin), but only "
+            f"{free_bytes / 1e9:.2f} GB is free at {existing_ancestor}. Set "
+            "config.TRAIN_DECODE_CACHE_ENABLED = False (train split only) "
+            "or free up disk space before training."
+        )
 
 
 def _resize_and_center_crop(image: tf.Tensor) -> tf.Tensor:
@@ -233,15 +315,19 @@ def _build_pipeline(
     Callers resolve their own (paths, labels) rather than this function
     assuming a single fixed root.
 
-    `cache_prefix`, if given, caches right after decode (native
-    resolution, pre-augmentation, pre-preprocess) — never after
-    backbone-specific preprocessing, since that would bake in one model's
-    normalization and silently serve mis-scaled cached images if a later
-    call reuses the same prefix with a different model_name. `cache_prefix
-    is None` means no caching at all: the right choice for a split/purpose
-    that's only ever read once (see build_datasets' test split, and
-    build_visualization_datasets below). Two callers must never share one
-    cache_prefix — each gets its own.
+    `cache_prefix`, if given, caches right after decode — uint8, native
+    resolution, pre-augmentation, pre-preprocess (this module's docstring
+    covers why uint8 and why that's safe) — never after backbone-specific
+    preprocessing, since that would bake in one model's normalization and
+    silently serve mis-scaled cached images if a later call reuses the same
+    prefix with a different model_name. Before writing anything, checks
+    that free disk space can actually hold the projected cache size
+    (_assert_cache_will_fit) — raises loudly rather than dying on a full
+    disk partway through training. `cache_prefix is None` means no caching
+    at all: the right choice for a split/purpose that's only ever read once
+    (see build_datasets' test split, and build_visualization_datasets
+    below) or when config.TRAIN_DECODE_CACHE_ENABLED is False. Two callers
+    must never share one cache_prefix — each gets its own.
 
     `shuffle=False` skips the shuffle buffer entirely; needed by
     build_visualization_datasets, whose already-small, pre-sampled input
@@ -252,6 +338,7 @@ def _build_pipeline(
     ds = ds.map(lambda p, y: (_decode(p), y), num_parallel_calls=AUTOTUNE)
 
     if cache_prefix is not None:
+        _assert_cache_will_fit(paths, cache_prefix)
         cache_prefix.parent.mkdir(parents=True, exist_ok=True)
         ds = ds.cache(str(cache_prefix))
 
@@ -259,9 +346,11 @@ def _build_pipeline(
         if shuffle:
             buffer_size = min(len(paths), config.SHUFFLE_BUFFER_SIZE)
             ds = ds.shuffle(buffer_size, seed=config.SEED, reshuffle_each_iteration=True)
+        ds = ds.map(lambda x, y: (_to_float(x), y), num_parallel_calls=AUTOTUNE)
         size = (config.IMAGE_SIZE, config.IMAGE_SIZE)
         ds = ds.map(lambda x, y: (augment.apply(x, size), y), num_parallel_calls=AUTOTUNE)
     else:
+        ds = ds.map(lambda x, y: (_to_float(x), y), num_parallel_calls=AUTOTUNE)
         ds = ds.map(lambda x, y: (_resize_and_center_crop(x), y), num_parallel_calls=AUTOTUNE)
 
     if preprocess_fn is not None:
@@ -279,8 +368,11 @@ def build_datasets(model_name: str, batch_size: int = None) -> tuple:
 
     Cache strategy differs per split, not uniformly: val is read once per
     epoch across many epochs of real training, so an on-disk decode cache
-    (own prefix, distinct from train's) pays for itself repeatedly. Test is
-    read exactly once, ever (CLAUDE.md rule 2) — a cache would only add
+    (own prefix, distinct from train's) pays for itself repeatedly and is
+    always enabled. Train's cache is env-configurable
+    (config.TRAIN_DECODE_CACHE_ENABLED — see its comment in src/config.py
+    for the measured on-disk sizes this decision trades off). Test is read
+    exactly once, ever (CLAUDE.md rule 2) — a cache would only add
     lockfile-contention risk for zero benefit, so it gets none.
     """
     batch_size = batch_size or config.BATCH_SIZE
@@ -291,13 +383,16 @@ def build_datasets(model_name: str, batch_size: int = None) -> tuple:
     val_paths, val_labels = _paths_and_labels(splits["val"])
     test_paths, test_labels = _paths_and_labels(splits["test"])
 
+    train_cache_prefix = (
+        config.TRAIN_DECODE_CACHE_DIR / "train" if config.TRAIN_DECODE_CACHE_ENABLED else None
+    )
     train_ds = _build_pipeline(
         train_paths,
         train_labels,
         training=True,
         batch_size=batch_size,
         preprocess_fn=preprocess_fn,
-        cache_prefix=config.TRAIN_DECODE_CACHE_DIR / "train",
+        cache_prefix=train_cache_prefix,
     )
     val_ds = _build_pipeline(
         val_paths,

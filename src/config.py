@@ -307,29 +307,62 @@ VAL_TEST_RESIZE_SIZE = 256
 # Cap on the train shuffle buffer. src/data/pipeline.py's shuffle sits
 # *after* decode and the disk cache (the correct tf.data order — see that
 # module's docstring — cache must see the deterministic pre-shuffle order
-# for reshuffle_each_iteration to actually reshuffle every epoch), so this
-# buffer holds decoded float32 [IMAGE_SIZE, IMAGE_SIZE, 3] tensors, not path
-# strings: ~0.6 MB each, so a buffer sized to the full ~38k-image training
-# split would need ~22 GB RAM — well past a 13.6 GB Colab instance, and
-# exactly what caused an earlier OOM (buffer previously defaulted to
-# 50_000, effectively "the whole split"). 2048 caps that at ~1.2 GB.
+# for reshuffle_each_iteration to actually reshuffle every epoch) but
+# *before* the uint8->float32 conversion, so this buffer holds decoded uint8
+# [native_resolution, native_resolution, 3] tensors (PlantVillage's native
+# resolution is 256x256, i.e. VAL_TEST_RESIZE_SIZE below — NOT IMAGE_SIZE;
+# there is no resize before this point), not path strings: ~0.19 MB each, so
+# 2048 caps the buffer at ~0.4 GB. (Sizing this any larger than the full
+# split would be the same OOM this project already hit once — see
+# TRAIN_DECODE_CACHE_ENABLED's comment below for the disk-side version of
+# that same mistake, caught before the first real Kaggle run.)
 # split.py's per-class group allocation already shuffles group order within
 # each class before writing splits.json, so the on-disk train split isn't
 # sorted by class to begin with — a buffer far smaller than the full split
 # still mixes classes well within each shuffled window.
 SHUFFLE_BUFFER_SIZE = 2048
 
+# Whether src/data/pipeline.py's build_datasets() gives the TRAIN split an
+# on-disk decode cache at all — a real, environment-specific tradeoff
+# (disk space vs. re-decoding JPEGs every epoch), unlike val's cache below,
+# which is small enough to always be worth it. Measured cache sizes for the
+# real 38,013-image train split, at native 256x256 resolution, uint8 (see
+# src/data/pipeline.py's _decode / _to_float — the cache stores uint8,
+# post-decode pre-augmentation; the float32 conversion happens strictly
+# after the cache read, never before):
+#   - True:  ~7.5 GB on disk. Comfortably fits Kaggle's 19.5 GB
+#     /kaggle/working quota alongside checkpoints/artifacts.
+#   - False: 0 GB (no train cache; every epoch re-decodes from
+#     PLANTVILLAGE_COLOR_DIR, which is a fast local/mounted read on both
+#     Kaggle and Colab — see src/data/pipeline.py's module docstring).
+# Before this was fixed, the cache stored float32 at native resolution
+# (~29.9 GB for train alone — worse than the ~22 GB a 224x224 assumption
+# would suggest, since no resize happens before the cache point) and would
+# have exhausted a 19.5 GB Kaggle quota partway through epoch 1.
+TRAIN_DECODE_CACHE_ENABLED = True
+
+# Safety margin applied on top of the raw projected pixel-byte count when
+# src/data/pipeline.py checks free disk space before writing a cache (tf.data's
+# own on-disk cache format adds a small amount of per-record framing
+# overhead on top of raw pixel bytes, and leaving zero headroom on a
+# multi-hour run is exactly the kind of near-miss this check exists to
+# avoid). 1.1 == require 10% more free space than the raw projection.
+CACHE_DISK_SPACE_SAFETY_MARGIN = 1.1
+
 # Local-disk cache for decoded-but-unaugmented train images (never Drive —
 # see the Drive-vs-local-disk rule above). Caching here, before augmentation,
 # avoids re-decoding JPEGs every epoch while still letting shuffle order and
-# every augmentation re-randomize fresh each epoch.
+# every augmentation re-randomize fresh each epoch. Only used when
+# TRAIN_DECODE_CACHE_ENABLED is True.
 TRAIN_DECODE_CACHE_DIR = DATA_ROOT / "cache" / "train_decoded"
 
 # Same idea for val: read once per epoch across many epochs of real
 # training, so caching the decoded image pays for itself repeatedly — own
-# directory so it can never collide with train's cache prefix. Test has no
-# such repeat-read pattern (CLAUDE.md rule 2: touched exactly once, at the
-# end), so it deliberately gets no disk cache at all — see
+# directory so it can never collide with train's cache prefix. Always
+# enabled (no toggle — at ~1.6 GB for the real 8,146-image val split, uint8,
+# native 256x256 resolution, it's small enough to never be worth disabling).
+# Test has no such repeat-read pattern (CLAUDE.md rule 2: touched exactly
+# once, at the end), so it deliberately gets no disk cache at all — see
 # src/data/pipeline.py's build_datasets.
 VAL_DECODE_CACHE_DIR = DATA_ROOT / "cache" / "val_decoded"
 
