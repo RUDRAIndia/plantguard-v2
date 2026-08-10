@@ -285,7 +285,15 @@ VAL_DECODE_CACHE_DIR = DATA_ROOT / "cache" / "val_decoded"
 # shortcut a model could learn from that studio setup rather than the lesion
 # itself — see src/data/augment.py's module docstring for the explicit
 # op-to-shortcut pairing (CLAUDE.md's "Known failure modes" section).
-AUGMENT_CROP_SCALE_RANGE = (0.65, 1.0)
+# Minimum raised from 0.65 to 0.8 after visual inspection of the 64-image
+# augmentation_grid.png sanity grid: roughly 6% of tiles (4/64) were zoomed
+# in so far that no diagnostic feature remained in frame — a Corn healthy
+# leaf reduced to plain venation stripes, two Orange Haunglongbing tiles
+# showing only uniform green, and a Corn Common rust tile cropped to a bare
+# leaf edge. PlantVillage images are single centred leaves at 256x256, so an
+# aggressive minimum crop area routinely excises the lesion entirely,
+# producing a disease label with no disease evidence in frame (label noise).
+AUGMENT_CROP_SCALE_RANGE = (0.8, 1.0)
 AUGMENT_CROP_RATIO_RANGE = (0.8, 1.25)
 AUGMENT_ROTATION_FACTOR = 0.0833  # keras RandomRotation factor -> ~30 degrees
 AUGMENT_BRIGHTNESS_MAX_DELTA = 0.25
