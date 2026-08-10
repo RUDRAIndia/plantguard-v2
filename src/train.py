@@ -2,10 +2,25 @@
 Tesla T4s) is the primary training environment; Google Colab is a fallback
 usable only while its free tier happens to attach a GPU. See
 src/models/phases.py for what each phase actually does and
-src/models/checkpoint.py for the per-epoch checkpoint/resume mechanism and
-module docstring for exactly what "resume" means on each environment —
-Kaggle's /kaggle/working (where config.CHECKPOINT_DIR resolves there) does
-NOT survive a session restart the way Colab's Drive does.
+src/models/checkpoint.py for the per-epoch in-session checkpoint mechanism.
+
+**Cross-session persistence on Kaggle.** /kaggle/working does not survive a
+session restart or the ~9-12 hour session time limit, and real training is
+roughly 4 GPU-hours across several sessions — so on Kaggle (config.IS_KAGGLE,
+unless --no-persist or --smoke), this file pushes each model's checkpoint to
+a private Kaggle Dataset after phase 1, after phase 2, and once more with
+history/manifest included at the very end, and restores it back into
+config.CHECKPOINT_DIR at startup before anything else runs. See
+src/models/kaggle_persist.py's module docstring for the full design; the
+short version is that a fresh session resuming a model in progress ends up
+with exactly the same config.CHECKPOINT_DIR contents an interrupted-but-not-
+restarted session would have had, so src/models/checkpoint.py's existing
+resume logic (state.json / phaseN_complete.json) runs completely unchanged
+on top of it — a fresh session therefore loses at most the training done
+since the last phase boundary, never an entire session's work. This never
+fires for --smoke runs (their checkpoints are throwaway synthetic-fixture
+runs that must never touch the real persisted dataset) or off Kaggle
+(Colab/local have no /kaggle/working problem to solve).
 
 Never reads the test split anywhere in this file — CLAUDE.md rule 2
 reserves it for final reporting, once, at the very end of the whole
@@ -29,7 +44,7 @@ import tensorflow as tf
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src import config  # noqa: E402
 from src.data import pipeline, smoke_dataset, split  # noqa: E402
-from src.models import build, phases, training_utils  # noqa: E402
+from src.models import build, kaggle_persist, phases, training_utils  # noqa: E402
 
 
 def _load_datasets(model_name: str, smoke: bool) -> tuple:
@@ -114,13 +129,25 @@ def _build_manifest(
     }
 
 
-def run_training(model_name: str, smoke: bool) -> dict:
+def run_training(model_name: str, smoke: bool, persist: bool = True) -> dict:
     if model_name not in config.CANDIDATE_MODELS:
         raise ValueError(
             f"Unknown model '{model_name}'. Choices: {sorted(config.CANDIDATE_MODELS)}."
         )
 
+    # Persistence is a Kaggle-specific answer to a Kaggle-specific problem
+    # (/kaggle/working not surviving a session restart) — never attempted
+    # off Kaggle, and never for --smoke's throwaway synthetic-fixture runs
+    # regardless of `persist` (CLAUDE.md rule 10 concern extended to a new
+    # failure mode: a smoke run must never touch the real persisted
+    # dataset).
+    persist_enabled = persist and not smoke and config.IS_KAGGLE
+
     checkpoint_dir = config.CHECKPOINT_DIR / (model_name + ("_smoke" if smoke else ""))
+    if persist_enabled:
+        kaggle_persist.restore_checkpoint(model_name, checkpoint_dir)
+        kaggle_persist.restore_artifacts(model_name)
+
     train_ds, val_ds, class_weights, phase1_epochs, phase2_epochs = _load_datasets(model_name, smoke)
 
     model = build.build_model(model_name)
@@ -128,9 +155,14 @@ def run_training(model_name: str, smoke: bool) -> dict:
     phase1_history, phase1_wall_seconds = phases.run_phase1(
         model_name, model, train_ds, val_ds, class_weights, phase1_epochs, checkpoint_dir
     )
+    if persist_enabled and phase1_history is not None:
+        kaggle_persist.push_checkpoint(model_name, checkpoint_dir)
+
     _finetune_model, phase2_history, phase2_wall_seconds = phases.run_phase2(
         model_name, model, train_ds, val_ds, class_weights, phase2_epochs, checkpoint_dir
     )
+    if persist_enabled and phase2_history is not None:
+        kaggle_persist.push_checkpoint(model_name, checkpoint_dir)
 
     history = {
         "phase1": training_utils.json_safe(phase1_history.history) if phase1_history is not None else None,
@@ -152,6 +184,9 @@ def run_training(model_name: str, smoke: bool) -> dict:
     )
     manifest_path = config.ARTIFACTS_DIR / f"train_manifest_{model_name}.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    if persist_enabled:
+        kaggle_persist.push_checkpoint(model_name, checkpoint_dir, include_artifacts=True)
 
     print(f"[train] Wrote {history_path} and {manifest_path}.")
     return manifest
@@ -176,9 +211,18 @@ def main() -> None:
             "(CLAUDE.md rule 10: local runs are smoke tests only)."
         ),
     )
+    parser.add_argument(
+        "--no-persist",
+        action="store_true",
+        help=(
+            "Disable pushing/restoring checkpoints via the Kaggle API "
+            "(src/models/kaggle_persist.py). Has no effect off Kaggle or "
+            "on --smoke runs, which never persist regardless."
+        ),
+    )
     args = parser.parse_args()
 
-    run_training(args.model, args.smoke)
+    run_training(args.model, args.smoke, persist=not args.no_persist)
 
 
 if __name__ == "__main__":

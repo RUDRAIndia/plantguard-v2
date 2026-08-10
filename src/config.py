@@ -518,18 +518,35 @@ REDUCE_LR_MIN_LR = 1e-6
 # Every epoch's weights are saved here. On Colab this is Drive
 # (DRIVE_DATA_ROOT), so a runtime disconnection never costs more than one
 # epoch — Drive outlives the VM. On Kaggle there is no Drive, so this falls
-# through to DATA_ROOT ("/kaggle/working/data/checkpoints"): that survives
-# an in-session crash or cell re-run (rerunning src/train.py picks the
-# checkpoint straight back up — see src/models/checkpoint.py's docstring for
-# exactly what "resume" means there), but NOT a full session restart/
-# timeout unless the notebook is explicitly committed ("Save Version") with
-# outputs saved and /kaggle/working/data/checkpoints is manually copied back
-# in on the next session — this module cannot automate that hand-off. Local
-# runs also fall through to DATA_ROOT, but only ever hold smoke-test
-# checkpoints (CLAUDE.md rule 10: no real training locally). Each model
-# gets its own subdirectory (src/train.py: CHECKPOINT_DIR / model_name), so
-# resuming one model can never pick up another's checkpoint.
+# through to DATA_ROOT ("/kaggle/working/data/checkpoints"), which on its
+# own does NOT survive a session restart or the ~9-12 hour session time
+# limit — see src/models/kaggle_persist.py's module docstring for how Day 6
+# closes that gap (pushing checkpoints to a private Kaggle Dataset via the
+# Kaggle API, restored back into this directory at the start of a fresh
+# session) and src/models/checkpoint.py's docstring for what "resume" means
+# once a checkpoint is here, regardless of how it got here. Local runs also
+# fall through to DATA_ROOT, but only ever hold smoke-test checkpoints
+# (CLAUDE.md rule 10: no real training locally), and Kaggle-persistence
+# never fires for them (src/train.py's --no-persist / smoke gating). Each
+# model gets its own subdirectory (src/train.py: CHECKPOINT_DIR /
+# model_name), so resuming one model can never pick up another's
+# checkpoint.
 CHECKPOINT_DIR = (DRIVE_DATA_ROOT / "checkpoints") if DRIVE_DATA_ROOT else (DATA_ROOT / "checkpoints")
+
+# ---------------------------------------------------------------------------
+# Cross-session checkpoint persistence on Kaggle (src/models/kaggle_persist.py)
+# ---------------------------------------------------------------------------
+# Private Kaggle Dataset every model's checkpoint + history/manifest JSONs
+# get pushed to after each phase (and restored from at the start of a fresh
+# session) — see that module's docstring for the full push/restore design.
+# Created on first use if it doesn't already exist under the authenticated
+# user's account.
+KAGGLE_PERSIST_DATASET_SLUG = "plantguard-artifacts"
+
+# Scratch folder pushes/restores are staged through before touching the
+# real Kaggle Dataset — DATA_ROOT-relative so it's /kaggle/working/data/...
+# on Kaggle (writable, gitignored, never the read-only input mount).
+KAGGLE_PERSIST_STAGING_DIR = DATA_ROOT / "_kaggle_artifacts_staging"
 
 # --smoke: two short epochs (CLAUDE.md rule 10 — local runs are smoke tests
 # only) on a synthetic on-disk dataset built by src/data/smoke_dataset.py,
