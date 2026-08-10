@@ -8,3 +8,4 @@ imagehash==4.3.2    # src/data/dedupe.py — perceptual hashing (phash) for dupl
 pytest==9.0.3       # tests/ — test runner
 tensorflow==2.21.0  # src/data/pipeline.py, augment.py — tf.data pipeline, Keras 3 layers/backbones
 matplotlib==3.10.8  # src/data/sanity.py — augmentation sanity-check grids
+psutil==7.2.2       # scripts/measure_train_pipeline_memory.py — RSS measurement for the OOM regression check

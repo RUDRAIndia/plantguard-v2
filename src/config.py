@@ -248,11 +248,20 @@ BATCH_SIZE = 32
 # applies. See src/data/pipeline.py's module docstring.
 VAL_TEST_RESIZE_SIZE = 256
 
-# Cap on the train shuffle buffer. Shuffling happens over lightweight path
-# strings *before* decode (cheap even near the full training-set size), so
-# this cap only matters as a safety ceiling, not a memory/quality tradeoff
-# knob — the actual buffer used is min(len(train_paths), this).
-SHUFFLE_BUFFER_SIZE = 50_000
+# Cap on the train shuffle buffer. src/data/pipeline.py's shuffle sits
+# *after* decode and the disk cache (the correct tf.data order — see that
+# module's docstring — cache must see the deterministic pre-shuffle order
+# for reshuffle_each_iteration to actually reshuffle every epoch), so this
+# buffer holds decoded float32 [IMAGE_SIZE, IMAGE_SIZE, 3] tensors, not path
+# strings: ~0.6 MB each, so a buffer sized to the full ~38k-image training
+# split would need ~22 GB RAM — well past a 13.6 GB Colab instance, and
+# exactly what caused an earlier OOM (buffer previously defaulted to
+# 50_000, effectively "the whole split"). 2048 caps that at ~1.2 GB.
+# split.py's per-class group allocation already shuffles group order within
+# each class before writing splits.json, so the on-disk train split isn't
+# sorted by class to begin with — a buffer far smaller than the full split
+# still mixes classes well within each shuffled window.
+SHUFFLE_BUFFER_SIZE = 2048
 
 # Local-disk cache for decoded-but-unaugmented train images (never Drive —
 # see the Drive-vs-local-disk rule above). Caching here, before augmentation,
