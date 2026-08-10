@@ -217,7 +217,8 @@ def _finalize(image: tf.Tensor, preprocess_fn) -> tf.Tensor:
 
 
 def _build_pipeline(
-    relative_paths: list,
+    paths: list,
+    labels: list,
     *,
     training: bool,
     batch_size: int,
@@ -225,7 +226,14 @@ def _build_pipeline(
     shuffle: bool = True,
     cache_prefix: Path = None,
 ) -> tf.data.Dataset:
-    """`cache_prefix`, if given, caches right after decode (native
+    """Takes already-resolved absolute path strings + integer labels — not
+    PlantVillage-relative paths — so this is reusable against any image
+    root (PlantVillage's color/ dir via _paths_and_labels below, or e.g.
+    src/train.py's --smoke path reading from config.SMOKE_DIR instead).
+    Callers resolve their own (paths, labels) rather than this function
+    assuming a single fixed root.
+
+    `cache_prefix`, if given, caches right after decode (native
     resolution, pre-augmentation, pre-preprocess) — never after
     backbone-specific preprocessing, since that would bake in one model's
     normalization and silently serve mis-scaled cached images if a later
@@ -240,7 +248,6 @@ def _build_pipeline(
     doesn't need it, and at full-split size the buffer would have to
     prefill with every decoded image before yielding anything.
     """
-    paths, labels = _paths_and_labels(relative_paths)
     ds = tf.data.Dataset.from_tensor_slices((paths, labels))
     ds = ds.map(lambda p, y: (_decode(p), y), num_parallel_calls=AUTOTUNE)
 
@@ -280,22 +287,29 @@ def build_datasets(model_name: str, batch_size: int = None) -> tuple:
     splits, _ = load_splits()
     preprocess_fn = _resolve_preprocess_fn(model_name)
 
+    train_paths, train_labels = _paths_and_labels(splits["train"])
+    val_paths, val_labels = _paths_and_labels(splits["val"])
+    test_paths, test_labels = _paths_and_labels(splits["test"])
+
     train_ds = _build_pipeline(
-        splits["train"],
+        train_paths,
+        train_labels,
         training=True,
         batch_size=batch_size,
         preprocess_fn=preprocess_fn,
         cache_prefix=config.TRAIN_DECODE_CACHE_DIR / "train",
     )
     val_ds = _build_pipeline(
-        splits["val"],
+        val_paths,
+        val_labels,
         training=False,
         batch_size=batch_size,
         preprocess_fn=preprocess_fn,
         cache_prefix=config.VAL_DECODE_CACHE_DIR / "val",
     )
     test_ds = _build_pipeline(
-        splits["test"],
+        test_paths,
+        test_labels,
         training=False,
         batch_size=batch_size,
         preprocess_fn=preprocess_fn,
@@ -322,11 +336,15 @@ def build_visualization_datasets(n_train: int = 64, n_val: int = 16) -> tuple:
     images one batch holds without duplicating these defaults.
     """
     splits, _ = load_splits()
-    train_paths = _sample_paths(splits["train"], n_train, config.SEED)
-    val_paths = _sample_paths(splits["val"], n_val, config.SEED)
+    train_relative_paths = _sample_paths(splits["train"], n_train, config.SEED)
+    val_relative_paths = _sample_paths(splits["val"], n_val, config.SEED)
+    train_paths, train_labels = _paths_and_labels(train_relative_paths)
+    val_paths, val_labels = _paths_and_labels(val_relative_paths)
 
     train_ds = _build_pipeline(
-        train_paths, training=True, batch_size=n_train, shuffle=False, cache_prefix=None
+        train_paths, train_labels, training=True, batch_size=n_train, shuffle=False, cache_prefix=None
     )
-    val_ds = _build_pipeline(val_paths, training=False, batch_size=n_val, cache_prefix=None)
+    val_ds = _build_pipeline(
+        val_paths, val_labels, training=False, batch_size=n_val, cache_prefix=None
+    )
     return train_ds, val_ds, n_train, n_val

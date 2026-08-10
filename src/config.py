@@ -390,6 +390,95 @@ assert set(PREPROCESSING_ENTRYPOINTS) == set(CANDIDATE_MODELS), (
 )
 
 # ---------------------------------------------------------------------------
+# Model architecture (src/models/build.py)
+# ---------------------------------------------------------------------------
+DROPOUT_RATE = 0.3
+
+# Per-backbone count of "last N blocks" src/models/build.py's
+# unfreeze_top_blocks() unfreezes for phase-2 fine-tuning. Block structure
+# differs across the 5 CANDIDATE_MODELS (different depths, different naming
+# conventions), so this is a per-backbone value, never a single shared
+# constant — see BACKBONE_BLOCK_NAME_PATTERNS below for how each
+# architecture's blocks are actually identified.
+UNFREEZE_BLOCKS = {
+    "MobileNetV2": 3,        # unfreezes inverted-residual blocks 14-16 of 16
+    "MobileNetV3Small": 3,   # unfreezes blocks 8-10 of 10
+    "MobileNetV3Large": 3,   # unfreezes blocks 12-14 of 14
+    "EfficientNetB0": 2,     # unfreezes stages 6-7 of 7
+    "EfficientNetV2B0": 2,   # unfreezes stages 5-6 of 6
+}
+assert set(UNFREEZE_BLOCKS) == set(CANDIDATE_MODELS), (
+    "UNFREEZE_BLOCKS must have exactly one entry per CANDIDATE_MODELS entry."
+)
+
+# Regex matched against each backbone layer's name to recover its integer
+# block/stage index, one pattern per architecture because
+# keras.applications names blocks differently per family (verified against
+# the actual layer names of each CANDIDATE_MODELS backbone,
+# include_top=False, pooling="avg"):
+#   - MobileNetV2:                "block_<N>_..."       N = 1..16
+#   - MobileNetV3Small/Large:     "expanded_conv_<N>_..." N = 1..10 / 1..14
+#   - EfficientNetB0/V2B0:        "block<N><letter>_..."  N = stage 1..7 / 1..6
+# The first block of every family (MobileNetV2/V3's block 0, EfficientNet's
+# stage-less stem) doesn't match and is therefore never a candidate for
+# unfreezing — correct, since "last N blocks" always means the deepest ones.
+BACKBONE_BLOCK_NAME_PATTERNS = {
+    "MobileNetV2": r"^block_(\d+)_",
+    "MobileNetV3Small": r"^expanded_conv_(\d+)_",
+    "MobileNetV3Large": r"^expanded_conv_(\d+)_",
+    "EfficientNetB0": r"^block(\d+)[a-z]_",
+    "EfficientNetV2B0": r"^block(\d+)[a-z]_",
+}
+assert set(BACKBONE_BLOCK_NAME_PATTERNS) == set(CANDIDATE_MODELS), (
+    "BACKBONE_BLOCK_NAME_PATTERNS must have exactly one entry per "
+    "CANDIDATE_MODELS entry."
+)
+
+# ---------------------------------------------------------------------------
+# Training (src/train.py)
+# ---------------------------------------------------------------------------
+# Phase 1 (frozen backbone, head only) learning rate. Phase 2 keeps this
+# same rate for the head and additionally trains the unfrozen backbone
+# blocks at HEAD_LEARNING_RATE * BACKBONE_LR_FACTOR (src/models/finetune.py)
+# — never the same rate for both, which would push large, ImageNet-feature-
+# destroying updates through the just-unfrozen pretrained layers.
+HEAD_LEARNING_RATE = 1e-3
+BACKBONE_LR_FACTOR = 0.1
+
+PHASE1_EPOCHS = 15
+PHASE2_EPOCHS = 30
+
+EARLY_STOPPING_PATIENCE = 5
+REDUCE_LR_FACTOR = 0.5
+REDUCE_LR_PATIENCE = 3
+REDUCE_LR_MIN_LR = 1e-6
+
+# Every epoch's weights are saved here (Drive on Colab, so a disconnection
+# never costs more than one epoch — CHECKPOINT_DIR follows the same
+# DRIVE_DATA_ROOT-or-local pattern as the dataset paths above; there is no
+# Drive concept outside Colab, so local/smoke runs checkpoint under
+# DATA_ROOT instead). Each model gets its own subdirectory
+# (src/train.py: CHECKPOINT_DIR / model_name), so resuming one model can
+# never pick up another's checkpoint.
+CHECKPOINT_DIR = (DRIVE_DATA_ROOT / "checkpoints") if DRIVE_DATA_ROOT else (DATA_ROOT / "checkpoints")
+
+# --smoke: two short epochs (CLAUDE.md rule 10 — local runs are smoke tests
+# only) on a synthetic on-disk dataset built by src/data/smoke_dataset.py,
+# never on the real splits.json (which doesn't exist on a machine that has
+# never downloaded PlantVillage). SMOKE_NUM_CLASSES real class names are
+# used (real indices into PLANTVILLAGE_CLASS_NAMES, so the 38-wide output
+# head is exercised against genuine label positions) with a fixed per-class
+# image count; the assertion below keeps the total under SMOKE_MAX_IMAGES
+# automatically if either constant is ever changed.
+SMOKE_EPOCHS_PER_PHASE = 1
+SMOKE_NUM_CLASSES = 5
+SMOKE_TRAIN_IMAGES_PER_CLASS = 32
+SMOKE_VAL_IMAGES_PER_CLASS = 8
+assert SMOKE_NUM_CLASSES * (SMOKE_TRAIN_IMAGES_PER_CLASS + SMOKE_VAL_IMAGES_PER_CLASS) <= SMOKE_MAX_IMAGES, (
+    "Smoke dataset size exceeds CLAUDE.md rule 10's 200-image local cap."
+)
+
+# ---------------------------------------------------------------------------
 # TFLite export
 # ---------------------------------------------------------------------------
 TFLITE_CONFIG = {

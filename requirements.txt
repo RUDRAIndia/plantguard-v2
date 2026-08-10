@@ -9,3 +9,5 @@ pytest==9.0.3       # tests/ — test runner
 tensorflow==2.21.0  # src/data/pipeline.py, augment.py — tf.data pipeline, Keras 3 layers/backbones
 matplotlib==3.10.8  # src/data/sanity.py — augmentation sanity-check grids
 psutil==7.2.2       # scripts/measure_train_pipeline_memory.py — RSS measurement for the OOM regression check
+scikit-learn==1.9.0 # tests/test_metrics.py — f1_score/recall_score ground truth for src/models/metrics.py
+numpy==2.4.6        # src/models/training_utils.py, tests/ — history-JSON conversion, trainable-param counting
