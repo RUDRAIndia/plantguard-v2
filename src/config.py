@@ -10,29 +10,58 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Environment detection
 # ---------------------------------------------------------------------------
-# "google.colab" is only ever importable inside a Colab runtime, so checking
-# sys.modules is the standard, reliable way to tell Colab apart from a local
-# machine without hardcoding either platform's paths.
-IS_COLAB = "google.colab" in sys.modules
+# Three environments this project ever runs in:
+#   - Kaggle Notebooks: training (two Tesla T4s). Detected by /kaggle/input
+#     existing, NOT an environment variable — Kaggle doesn't reliably set one
+#     the way "google.colab" is reliably importable, but /kaggle/input is
+#     always mounted (read-only) on every Kaggle notebook session, including
+#     ones with no datasets attached (it still exists, just empty), so its
+#     presence is a solid environment signal.
+#   - Google Colab: training fallback, only usable while a free-tier GPU is
+#     actually attached (not guaranteed — see CLAUDE.md). "google.colab" is
+#     only ever importable inside a Colab runtime.
+#   - Local Windows dev machine: code and tests only, per CLAUDE.md rule 10
+#     — no CUDA GPU, so never real training, only smoke tests on <=200
+#     images.
+# Checked in this order because a Kaggle notebook could theoretically also
+# satisfy some Colab-like signal in the future; /kaggle/input is the more
+# specific, more reliable check, so it's resolved first.
+IS_KAGGLE = Path("/kaggle/input").is_dir()
+IS_COLAB = (not IS_KAGGLE) and "google.colab" in sys.modules
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 # Repo root is derived from this file's own location, so it resolves
 # correctly regardless of platform or where the repo happens to be cloned
-# (e.g. C:\Projects\plantguard-v2 locally vs /content/plantguard-v2 on Colab).
+# (e.g. C:\Projects\plantguard-v2 locally, /content/plantguard-v2 on Colab,
+# /kaggle/working/plantguard-v2 on Kaggle).
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 ARTIFACTS_DIR = REPO_ROOT / "artifacts"
 
-# DATA_ROOT is where all per-image work happens: extraction, counting,
-# splitting, training reads. On Colab this MUST be the VM's own local disk,
-# never the Drive FUSE mount — Drive writes/stats small files at only a few
-# dozen per second, so any per-file operation (extracting ~54k images,
-# walking them to validate) is unusably slow or effectively never completes
-# there. See src/data/download.py's module docstring for the full
-# cold-storage-vs-local-disk design and CLAUDE.md's Drive rule.
-if IS_COLAB:
+# DATA_ROOT is where all per-image work happens (extraction, counting,
+# splitting, caches, checkpoints) and — critically — every path DATA_ROOT
+# derives must be WRITABLE. On Kaggle specifically, /kaggle/input (where the
+# real datasets are mounted) is READ-ONLY: any write attempted there fails,
+# so DATA_ROOT must never point inside it. /kaggle/working is the one
+# location Kaggle guarantees is writable for the session (see CHECKPOINT_DIR
+# below for exactly how far that guarantee extends). On Colab, DATA_ROOT
+# MUST be the VM's own local disk, never the Drive FUSE mount — Drive
+# writes/stats small files at only a few dozen per second, so any per-file
+# operation is unusably slow or effectively never completes there. See
+# src/data/download.py's module docstring for the full cold-storage-vs-
+# local-disk design and CLAUDE.md's Drive rule.
+if IS_KAGGLE:
+    DATA_ROOT = Path("/kaggle/working/data")
+    # No Drive on Kaggle — PlantVillage and the negatives source are
+    # mounted directly as read-only inputs (see KAGGLE_PLANTVILLAGE_COLOR_DIR
+    # / KAGGLE_NEGATIVES_SEG_TRAIN_DIR below), so there is nothing to persist
+    # a tar copy of. PlantDoc still git-clones fresh each session (small
+    # enough, ~2,598 images, that re-cloning every session is cheap) rather
+    # than needing its own persistence mechanism.
+    DRIVE_DATA_ROOT = None
+elif IS_COLAB:
     DATA_ROOT = Path("/content/data")
     # Drive is cold storage ONLY: a single tar per dataset, nothing else.
     # It exists purely so a session can resume without re-downloading, since
@@ -50,7 +79,8 @@ else:
 # alongside each tar so a *fresh* Colab session — a fresh git clone, whose
 # gitignored local artifacts/ has no history — can still read last session's
 # observed counts without walking any files. This is what makes the fast,
-# walk-free integrity check in src/data/download.py possible.
+# walk-free integrity check in src/data/download.py possible. None on
+# Kaggle/local, where there is no Drive.
 DRIVE_PROVENANCE_PATH = (DRIVE_DATA_ROOT / "dataset_provenance.json") if DRIVE_DATA_ROOT else None
 PLANTVILLAGE_COLOR_TAR = (DRIVE_DATA_ROOT / "plantvillage_color.tar") if DRIVE_DATA_ROOT else None
 PLANTDOC_TAR = (DRIVE_DATA_ROOT / "plantdoc.tar") if DRIVE_DATA_ROOT else None
@@ -62,11 +92,37 @@ PLANTDOC_TAR = (DRIVE_DATA_ROOT / "plantdoc.tar") if DRIVE_DATA_ROOT else None
 MIN_PLANTVILLAGE_TAR_BYTES = 500_000_000
 MIN_PLANTDOC_TAR_BYTES = 20_000_000
 
+# Verified real paths on a running Kaggle notebook instance (per-file
+# checked, not guessed): both datasets are attached as read-only notebook
+# inputs, already extracted — no download, no zip, no tar. None outside
+# Kaggle; only ever read, never written to (rule 13 / the read-only-mount
+# constraint above) — src/data/download.py and src/data/negatives.py point
+# at these directly instead of downloading.
+if IS_KAGGLE:
+    # The same mount also contains segmented/, grayscale/, and a wrapper
+    # directory literally named "plantvillage dataset" — this is the
+    # top-level color/ directory specifically, not the wrapper.
+    KAGGLE_PLANTVILLAGE_COLOR_DIR = Path(
+        "/kaggle/input/datasets/abdallahalidev/plantvillage-dataset/color"
+    )
+    # Doubled nesting (seg_train/seg_train/<category>/...), same quirk
+    # src/data/fetch.py's _resolve_through_wrapper_dirs already handles for
+    # a downloaded zip — src/data/negatives.py resolves it here too instead
+    # of downloading.
+    KAGGLE_NEGATIVES_SEG_TRAIN_DIR = Path(
+        "/kaggle/input/datasets/puneet6060/intel-image-classification/seg_train"
+    )
+else:
+    KAGGLE_PLANTVILLAGE_COLOR_DIR = None
+    KAGGLE_NEGATIVES_SEG_TRAIN_DIR = None
+
 PLANTVILLAGE_DIR = DATA_ROOT / "plantvillage"
 # Only the "color" variant is ever used for training — never grayscale or
-# segmented. Kept as its own leaf directory so a stray grayscale/segmented
-# extraction can never be mistaken for it.
-PLANTVILLAGE_COLOR_DIR = PLANTVILLAGE_DIR / "color"
+# segmented. On Kaggle this IS the read-only mounted directory itself (never
+# a DATA_ROOT-derived, writable path) — see KAGGLE_PLANTVILLAGE_COLOR_DIR
+# above. Elsewhere it's its own leaf directory under PLANTVILLAGE_DIR so a
+# stray grayscale/segmented extraction can never be mistaken for it.
+PLANTVILLAGE_COLOR_DIR = KAGGLE_PLANTVILLAGE_COLOR_DIR if IS_KAGGLE else PLANTVILLAGE_DIR / "color"
 
 PLANTDOC_DIR = DATA_ROOT / "plantdoc"
 PLANTDOC_TRAIN_DIR = PLANTDOC_DIR / "train"
@@ -330,21 +386,27 @@ AUGMENT_RANDOM_ERASING_ASPECT_RANGE = (0.3, 3.3)
 # ---------------------------------------------------------------------------
 # Kaggle mirror of Intel's "Natural Scenes" dataset: ~25k photos of ordinary,
 # non-leaf scenes (buildings, forest, glacier, mountain, sea, street) —
-# chosen because it reuses the same KaggleApi + zip-extraction machinery
-# already in src/data/fetch.py rather than adding a new raw-URL download
-# path, and it's about as visually unlike a studio leaf macro shot as an
-# "ordinary photograph" dataset gets.
+# chosen because on Colab it reuses the same KaggleApi + zip-extraction
+# machinery already in src/data/fetch.py rather than adding a new raw-URL
+# download path, and it's about as visually unlike a studio leaf macro shot
+# as an "ordinary photograph" dataset gets. On Kaggle this dataset is
+# instead a read-only mounted input (KAGGLE_NEGATIVES_SEG_TRAIN_DIR above) —
+# this slug is only used for the Colab-only KaggleApi download.
 NEGATIVES_KAGGLE_SLUG = "puneet6060/intel-image-classification"
-# Name of the directory inside the Kaggle archive holding the labeled
+# Name of the directory inside the Kaggle archive (Colab path) / mount
+# (Kaggle path, see KAGGLE_NEGATIVES_SEG_TRAIN_DIR) holding the labeled
 # training images. Located the same defensive way as fetch.py's
 # "color"-directory search (exact name match, raise if 0 or >1 found) since
 # the exact nesting can't be verified without a live download.
 NEGATIVES_SOURCE_SUBDIR_NAME = "seg_train"
 # The six category directories the resolved seg_train subtree must contain
 # directly (after src/data/fetch.py's wrapper-directory descent) — asserted
-# exactly, not fuzzily, so a Kaggle-side layout/category change is caught
+# exactly, not fuzzily, so a source-side layout/category change is caught
 # immediately rather than silently subsampling from the wrong level again.
 NEGATIVES_EXPECTED_CATEGORIES = ("buildings", "forest", "glacier", "mountain", "sea", "street")
+# Always DATA_ROOT-relative (never the read-only Kaggle mount itself) — this
+# is the destination src/data/negatives.py's deterministic subsample is
+# copied into, so it must always be writable.
 NEGATIVES_DIR = DATA_ROOT / "negatives"
 NEGATIVES_TARGET_COUNT = 3_000
 NEGATIVES_EXPECTED_IMAGE_COUNT_RANGE = (2_900, 3_100)
@@ -453,13 +515,20 @@ REDUCE_LR_FACTOR = 0.5
 REDUCE_LR_PATIENCE = 3
 REDUCE_LR_MIN_LR = 1e-6
 
-# Every epoch's weights are saved here (Drive on Colab, so a disconnection
-# never costs more than one epoch — CHECKPOINT_DIR follows the same
-# DRIVE_DATA_ROOT-or-local pattern as the dataset paths above; there is no
-# Drive concept outside Colab, so local/smoke runs checkpoint under
-# DATA_ROOT instead). Each model gets its own subdirectory
-# (src/train.py: CHECKPOINT_DIR / model_name), so resuming one model can
-# never pick up another's checkpoint.
+# Every epoch's weights are saved here. On Colab this is Drive
+# (DRIVE_DATA_ROOT), so a runtime disconnection never costs more than one
+# epoch — Drive outlives the VM. On Kaggle there is no Drive, so this falls
+# through to DATA_ROOT ("/kaggle/working/data/checkpoints"): that survives
+# an in-session crash or cell re-run (rerunning src/train.py picks the
+# checkpoint straight back up — see src/models/checkpoint.py's docstring for
+# exactly what "resume" means there), but NOT a full session restart/
+# timeout unless the notebook is explicitly committed ("Save Version") with
+# outputs saved and /kaggle/working/data/checkpoints is manually copied back
+# in on the next session — this module cannot automate that hand-off. Local
+# runs also fall through to DATA_ROOT, but only ever hold smoke-test
+# checkpoints (CLAUDE.md rule 10: no real training locally). Each model
+# gets its own subdirectory (src/train.py: CHECKPOINT_DIR / model_name), so
+# resuming one model can never pick up another's checkpoint.
 CHECKPOINT_DIR = (DRIVE_DATA_ROOT / "checkpoints") if DRIVE_DATA_ROOT else (DATA_ROOT / "checkpoints")
 
 # --smoke: two short epochs (CLAUDE.md rule 10 — local runs are smoke tests

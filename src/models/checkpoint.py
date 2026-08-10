@@ -1,7 +1,29 @@
 """Per-epoch checkpointing for src/train.py's two-phase loop: saves weights
-and a small resume-state JSON after every epoch, so a Colab disconnection
-never costs more than the epoch in progress (CLAUDE.md: checkpoint every
-epoch to Drive; config.CHECKPOINT_DIR resolves to Drive on Colab).
+and a small resume-state JSON after every epoch, into config.CHECKPOINT_DIR.
+
+What "resume" actually means differs by environment — config.CHECKPOINT_DIR
+resolves differently on each, and this callback's guarantee is only ever as
+strong as that location's durability:
+
+- **Colab**: CHECKPOINT_DIR is on Drive, which outlives the VM. A runtime
+  disconnection (Colab's free tier can revoke the VM at any time) never
+  costs more than the epoch in progress — the next session's src/train.py
+  run finds Drive intact and resumes automatically.
+- **Kaggle**: there is no Drive. CHECKPOINT_DIR falls through to
+  /kaggle/working/data/checkpoints. This survives an in-session crash or
+  cell re-run — re-running src/train.py within the SAME session picks the
+  checkpoint straight back up, same as any other local write. It does NOT
+  survive a full session restart or the ~9-12 hour session time limit:
+  /kaggle/working is only guaranteed to persist for the life of the current
+  edit session, not across sessions, unless the notebook is explicitly
+  committed ("Save Version" with outputs saved) and the resulting output is
+  then manually re-attached as an input to a fresh session and copied back
+  into place. Nothing in this codebase automates that hand-off — a Kaggle
+  session that times out mid-training loses checkpoint continuity unless
+  the user has done that manually.
+- **Local**: CHECKPOINT_DIR also falls through to DATA_ROOT, but only ever
+  holds smoke-test checkpoints (CLAUDE.md rule 10: no real training runs
+  locally), so durability there is irrelevant.
 """
 
 import json

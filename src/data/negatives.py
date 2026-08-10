@@ -5,20 +5,29 @@ forcing a confident wrong prediction into one of the 38 classes.
 Source: Kaggle's "Intel Image Classification" (puneet6060/intel-image-
 classification, config.NEGATIVES_KAGGLE_SLUG) — ~25k photos of ordinary,
 non-leaf scenes (buildings, forest, glacier, mountain, sea, street). Chosen
-because it reuses the exact KaggleApi + zip-extraction machinery already in
-src/data/fetch.py (no new download mechanism, same credentials already set
-up for PlantVillage), and it is about as visually unlike a studio leaf
-macro shot as an "ordinary photograph" dataset gets.
+because on Colab it reuses the exact KaggleApi + zip-extraction machinery
+already in src/data/fetch.py (no new download mechanism, same credentials
+already set up for PlantVillage), and it is about as visually unlike a
+studio leaf macro shot as an "ordinary photograph" dataset gets. On Kaggle
+this dataset is instead a read-only mounted notebook input
+(config.KAGGLE_NEGATIVES_SEG_TRAIN_DIR) — fetch.resolve_negatives_mount()
+resolves it in place, no download, no KaggleApi call.
 
 These images are NEVER part of the 38 PlantVillage classes and NEVER used
 as training labels — they exist solely to calibrate an out-of-distribution
 rejection threshold on the validation split, later. This module only
 assembles and persists the set; calibration is a separate, later step.
 
-Follows src/data/download.py's exact local-disk-first, Drive-as-cold-storage
-pattern: local per-image work only, Drive holds a single tar + provenance
-sidecar, and the destination is never touched until a staged, validated
-candidate is ready to swap in (CLAUDE.md rule 13).
+The *destination* (config.NEGATIVES_DIR, the deterministic subsample this
+module writes) always follows src/data/download.py's local-disk-first,
+Drive-as-cold-storage pattern on Colab: local per-image work only, Drive
+holds a single tar + provenance sidecar, and the destination is never
+touched until a staged, validated candidate is ready to swap in (CLAUDE.md
+rule 13). On Kaggle there is no Drive, so the persist-to-tar step is skipped
+entirely (config.NEGATIVES_TAR is None) — NEGATIVES_DIR still resolves
+under the writable /kaggle/working/data, just without cross-session
+persistence beyond what CLAUDE.md's checkpoint docstring already describes
+for that environment.
 """
 
 import random
@@ -31,12 +40,13 @@ from src import config  # noqa: E402
 from src.data import drive_tar, fetch, provenance, validate  # noqa: E402
 
 
-def _require_colab() -> None:
-    if not config.IS_COLAB:
+def _require_colab_or_kaggle() -> None:
+    if not (config.IS_COLAB or config.IS_KAGGLE):
         raise RuntimeError(
-            "Refusing to download the negatives set: this is not a Colab "
-            "environment. Per project convention, full dataset downloads "
-            "only ever happen from a Colab session (CLAUDE.md rule 10)."
+            "Refusing to assemble the negatives set: this is not a Colab or "
+            "Kaggle environment. Per project convention, full dataset "
+            "downloads only ever happen from a training session (CLAUDE.md "
+            "rule 10)."
         )
 
 
@@ -78,14 +88,17 @@ def _deterministic_subsample(class_dirs: list, target_count: int, seed: int) -> 
 
 
 def download_negatives(force: bool = False) -> Path:
-    """Ensures config.NEGATIVES_DIR (local disk) holds a valid negatives
-    set: config.NEGATIVES_TARGET_COUNT images deterministically subsampled
-    from config.NEGATIVES_KAGGLE_SLUG, laid out as
-    <original_category>/<file> for traceability (categories are never used
-    as training labels). Idempotent, tar-first, validate-before-swap — same
-    design as src/data/download.py's download_plantvillage.
+    """Ensures config.NEGATIVES_DIR holds a valid negatives set:
+    config.NEGATIVES_TARGET_COUNT images deterministically subsampled from
+    the source (Kaggle API download on Colab, the read-only mounted input on
+    Kaggle), laid out as <original_category>/<file> for traceability
+    (categories are never used as training labels). Idempotent,
+    tar-first-on-Colab, validate-before-swap — same design as
+    src/data/download.py's download_plantvillage. NEGATIVES_DIR itself is
+    always a writable DATA_ROOT-relative destination, never the read-only
+    Kaggle mount.
     """
-    _require_colab()
+    _require_colab_or_kaggle()
 
     if not force and config.NEGATIVES_DIR.is_dir():
         valid, detail = validate.validate_negatives_dir(
@@ -117,16 +130,22 @@ def download_negatives(force: bool = False) -> Path:
         candidate = staging_dir / "negatives"
         source = f"drive-tar:{tar_path}"
     else:
-        source_dir = fetch.download_negatives_from_kaggle(staging_dir)
+        if config.IS_KAGGLE:
+            source_dir = fetch.resolve_negatives_mount()
+            source_label = f"kaggle-input-mount:{config.KAGGLE_NEGATIVES_SEG_TRAIN_DIR}"
+        else:
+            source_dir = fetch.download_negatives_from_kaggle(staging_dir)
+            source_label = f"kaggle:{config.NEGATIVES_KAGGLE_SLUG}"
+
         class_dirs = [p for p in source_dir.iterdir() if p.is_dir()]
         found_categories = sorted(p.name for p in class_dirs)
         expected_categories = sorted(config.NEGATIVES_EXPECTED_CATEGORIES)
         if found_categories != expected_categories:
             raise RuntimeError(
                 f"Expected exactly the categories {expected_categories} directly "
-                f"inside {source_dir}, found {found_categories}. The Kaggle "
-                f"archive layout for '{config.NEGATIVES_KAGGLE_SLUG}' may have "
-                "changed — inspect it manually before proceeding."
+                f"inside {source_dir}, found {found_categories}. The source "
+                f"layout for '{config.NEGATIVES_KAGGLE_SLUG}' may have changed "
+                "— inspect it manually before proceeding."
             )
         selected_files = _deterministic_subsample(class_dirs, config.NEGATIVES_TARGET_COUNT, config.SEED)
 
@@ -136,7 +155,7 @@ def download_negatives(force: bool = False) -> Path:
             dest_file = candidate / category / src_file.name
             dest_file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src_file, dest_file)
-        source = f"kaggle:{config.NEGATIVES_KAGGLE_SLUG}"
+        source = source_label
 
     valid, detail = validate.validate_negatives_dir(candidate, config.NEGATIVES_EXPECTED_IMAGE_COUNT_RANGE)
     if not valid:
@@ -162,7 +181,7 @@ def download_negatives(force: bool = False) -> Path:
         hash_base_dir=config.NEGATIVES_DIR,
     )
 
-    if not restored_from_tar:
+    if not restored_from_tar and tar_path is not None:
         drive_tar.persist_to_drive_tar(
             "negatives", tar_path, [(config.NEGATIVES_DIR, "negatives")], config.MIN_NEGATIVES_TAR_BYTES
         )

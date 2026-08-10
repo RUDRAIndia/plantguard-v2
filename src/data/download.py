@@ -1,7 +1,17 @@
-"""Downloads PlantVillage (Kaggle) and PlantDoc (public) datasets.
+"""Ensures PlantVillage and PlantDoc are ready on local disk (Colab) or
+validated in place (Kaggle) — see config.IS_KAGGLE / config.IS_COLAB.
 
-Design (rewritten after real measurements on Colab — see git history for the
-prior, broken design):
+On Kaggle, PlantVillage is a read-only mounted notebook input, already
+extracted (config.KAGGLE_PLANTVILLAGE_COLOR_DIR) — there is no download, no
+zip, no tar, and nothing is ever written near it. download_plantvillage()
+short-circuits to validating that mount in place and recording its
+provenance; the Colab tar/Kaggle-API machinery below never runs on Kaggle.
+PlantDoc is NOT attached as a Kaggle input, so download_plantdoc() still
+git-clones it — to config.PLANTDOC_DIR, which resolves under
+/kaggle/working on Kaggle (always writable, never the read-only input mount).
+
+Design of the Colab path (rewritten after real measurements on Colab — see
+git history for the prior, broken design):
 
 - **All per-image work happens on local disk** (config.DATA_ROOT, which is
   /content/data on Colab), never on the Drive FUSE mount. Drive writes and
@@ -36,9 +46,12 @@ prior, broken design):
   run after it turned out to be redundant — see CLAUDE.md's build/validate/
   swap rule.)
 
-Only ever runs on Colab — see the IS_COLAB guard in each download function.
-Kaggle/git acquisition lives in src/data/fetch.py, Drive persistence in
-src/data/drive_tar.py, provenance recording in src/data/provenance.py.
+The tar/Kaggle-API/Drive path only ever runs on Colab (IS_COLAB); the
+mount-validation path only ever runs on Kaggle (IS_KAGGLE); neither runs
+locally (CLAUDE.md rule 10 — the local laptop only ever holds the
+smoke-test subset). Kaggle/git acquisition lives in src/data/fetch.py,
+Drive persistence in src/data/drive_tar.py, provenance recording in
+src/data/provenance.py.
 """
 
 import shutil
@@ -48,6 +61,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src import config  # noqa: E402
 from src.data import drive_tar, fetch, provenance, validate  # noqa: E402
+
+
+def _require_colab_or_kaggle(dataset_name: str) -> None:
+    if not (config.IS_COLAB or config.IS_KAGGLE):
+        raise RuntimeError(
+            f"Refusing to download {dataset_name}: this is not a Colab or "
+            "Kaggle environment. Per project convention, full dataset "
+            "downloads only ever happen from a training session (CLAUDE.md "
+            "rule 10) — the local laptop only ever holds the smoke-test "
+            "subset."
+        )
 
 
 def _require_colab(dataset_name: str) -> None:
@@ -60,15 +84,55 @@ def _require_colab(dataset_name: str) -> None:
         )
 
 
+def _validate_kaggle_plantvillage_mount() -> Path:
+    """Kaggle path: config.PLANTVILLAGE_COLOR_DIR already IS the read-only
+    mounted input (config.KAGGLE_PLANTVILLAGE_COLOR_DIR) — validates it in
+    place with the exact same validate.validate_plantvillage_dir() check the
+    Colab path uses (38-class assertion + image-count range, never weakened)
+    and records its provenance. Never stages, moves, or writes anything —
+    there is nothing to download and the mount can't be written to anyway.
+    """
+    valid, detail = validate.validate_plantvillage_dir(config.PLANTVILLAGE_COLOR_DIR)
+    if not valid:
+        raise RuntimeError(
+            f"Kaggle-mounted PlantVillage input at {config.PLANTVILLAGE_COLOR_DIR} "
+            f"failed validation: {detail}. Re-attach the "
+            f"'{config.KAGGLE_DATASET_SLUG}' dataset as a notebook input "
+            "(Add Input -> search the slug -> Add), then restart the session "
+            "— this is not something the code can fix."
+        )
+
+    image_count = validate.count_images(config.PLANTVILLAGE_COLOR_DIR)
+    class_count = sum(1 for p in config.PLANTVILLAGE_COLOR_DIR.iterdir() if p.is_dir())
+    provenance.record(
+        "plantvillage",
+        source=f"kaggle-input-mount:{config.PLANTVILLAGE_COLOR_DIR}",
+        image_count=image_count,
+        class_count=class_count,
+        hash_base_dir=config.PLANTVILLAGE_COLOR_DIR,
+    )
+    print(
+        f"[download] PlantVillage color/ validated at the read-only Kaggle "
+        f"mount {config.PLANTVILLAGE_COLOR_DIR} ({image_count} images)."
+    )
+    return config.PLANTVILLAGE_COLOR_DIR
+
+
 def download_plantvillage(force: bool = False) -> Path:
-    """Ensures config.PLANTVILLAGE_COLOR_DIR (local disk) holds a valid
-    PlantVillage color/ dataset. Idempotent: skips if already present and
-    valid. Prefers restoring from the Drive tar over Kaggle when the tar
-    passes the fast integrity check; only falls back to Kaggle when the tar
+    """Ensures config.PLANTVILLAGE_COLOR_DIR holds a valid PlantVillage
+    color/ dataset. On Kaggle this validates the read-only mounted input in
+    place (`force` is meaningless there — there is nothing to re-download or
+    replace) via _validate_kaggle_plantvillage_mount() above. On Colab
+    (local disk): idempotent, skips if already present and valid; prefers
+    restoring from the Drive tar over Kaggle's API when the tar passes the
+    fast integrity check, only falling back to the Kaggle API when the tar
     is absent (or fails that check, or `force=True`). The destination is
     never touched until the candidate (freshly downloaded or tar-restored)
     has been validated in staging.
     """
+    if config.IS_KAGGLE:
+        return _validate_kaggle_plantvillage_mount()
+
     _require_colab("PlantVillage")
 
     if not force and config.PLANTVILLAGE_COLOR_DIR.is_dir():
@@ -151,12 +215,19 @@ def download_plantvillage(force: bool = False) -> Path:
 
 
 def download_plantdoc(force: bool = False) -> Path:
-    """Ensures config.PLANTDOC_TRAIN_DIR / config.PLANTDOC_TEST_DIR (local
-    disk) hold a valid PlantDoc dataset. Used as an external test set only —
-    never trained or validated on. Same tar-first, validate-before-swap
-    design as download_plantvillage.
+    """Ensures config.PLANTDOC_TRAIN_DIR / config.PLANTDOC_TEST_DIR hold a
+    valid PlantDoc dataset. Used as an external test set only — never
+    trained or validated on. PlantDoc is NOT attached as a Kaggle input (only
+    PlantVillage and the negatives source are), so this runs the same
+    tar-first, validate-before-swap path on both Colab and Kaggle — writing
+    to config.PLANTDOC_DIR, which resolves under /content/data on Colab and
+    /kaggle/working/data on Kaggle (always writable, never the read-only
+    input mount). Kaggle has no Drive, so config.PLANTDOC_TAR is None there:
+    `restored_from_tar` is always False and this always git-clones fresh —
+    fine, since PlantDoc is small (~2,598 images) and cloning every session
+    is cheap.
     """
-    _require_colab("PlantDoc")
+    _require_colab_or_kaggle("PlantDoc")
 
     if not force and config.PLANTDOC_DIR.is_dir():
         valid, detail = validate.validate_plantdoc_dirs(config.PLANTDOC_TRAIN_DIR, config.PLANTDOC_TEST_DIR)
@@ -231,7 +302,7 @@ def download_plantdoc(force: bool = False) -> Path:
         hash_subdirs=[config.PLANTDOC_TRAIN_DIR, config.PLANTDOC_TEST_DIR],
     )
 
-    if not restored_from_tar:
+    if not restored_from_tar and tar_path is not None:
         drive_tar.persist_to_drive_tar(
             "plantdoc",
             tar_path,

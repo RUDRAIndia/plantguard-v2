@@ -212,6 +212,27 @@ def download_negatives_from_kaggle(staging_dir: Path) -> Path:
     return source_dir
 
 
+def resolve_negatives_mount() -> Path:
+    """Kaggle path: no download — config.KAGGLE_NEGATIVES_SEG_TRAIN_DIR is
+    already a read-only mounted notebook input with the same doubled-nesting
+    quirk as the downloaded zip (seg_train/seg_train/<category>/...), so
+    this reuses the exact same _resolve_through_wrapper_dirs descent
+    download_negatives_from_kaggle uses after extraction. Returns the
+    resolved directory whose direct children are the category directories —
+    never copies or moves anything (the mount is read-only and this
+    function only reads it).
+    """
+    mount_dir = config.KAGGLE_NEGATIVES_SEG_TRAIN_DIR
+    if not mount_dir.is_dir():
+        raise RuntimeError(
+            f"Kaggle-mounted negatives input not found at {mount_dir}. "
+            f"Re-attach the '{config.NEGATIVES_KAGGLE_SLUG}' dataset as a "
+            "notebook input (Add Input -> search the slug -> Add), then "
+            "restart the session — this is not something the code can fix."
+        )
+    return _resolve_through_wrapper_dirs(mount_dir)
+
+
 def clone_plantdoc_to(staging_dir: Path) -> str:
     """Clones the PlantDoc classification repo directly to local disk.
     Returns the cloned commit hash.

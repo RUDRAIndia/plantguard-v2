@@ -1,8 +1,11 @@
-"""Two-phase transfer-learning training entrypoint, intended to run on
-Google Colab (T4 GPU). See src/models/phases.py for what each phase
-actually does and src/models/checkpoint.py for the per-epoch checkpoint/
-resume mechanism (config.CHECKPOINT_DIR resolves to Drive on Colab, so a
-disconnection never costs more than the epoch in progress).
+"""Two-phase transfer-learning training entrypoint. Kaggle Notebooks (two
+Tesla T4s) is the primary training environment; Google Colab is a fallback
+usable only while its free tier happens to attach a GPU. See
+src/models/phases.py for what each phase actually does and
+src/models/checkpoint.py for the per-epoch checkpoint/resume mechanism and
+module docstring for exactly what "resume" means on each environment —
+Kaggle's /kaggle/working (where config.CHECKPOINT_DIR resolves there) does
+NOT survive a session restart the way Colab's Drive does.
 
 Never reads the test split anywhere in this file — CLAUDE.md rule 2
 reserves it for final reporting, once, at the very end of the whole

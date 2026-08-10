@@ -49,9 +49,11 @@ feels like a shortcut.
    ranges, no `~=`, no unpinned entries.
 
 10. **Do not run training in this environment.** This machine has no CUDA
-    GPU. Training runs on Google Colab (free T4), which clones this repo from
-    GitHub. Locally you may only run smoke tests on a subset of at most 200
-    images.
+    GPU. There are three environments (see "Environments" below): Kaggle
+    Notebooks is where real training happens; Colab is a fallback usable
+    only when its free tier happens to attach a GPU; this local Windows
+    machine is code and tests only. Locally you may only run smoke tests on
+    a subset of at most 200 images.
 
 11. **After any code change, run the relevant test or script and paste the
     real terminal output.** Never claim something works without showing
@@ -78,11 +80,45 @@ feels like a shortcut.
     silently calling removed/renamed code is exactly the kind of silent
     failure rule 1 forbids.
 
+## Environments
+
+Three environments, detected by `src/config.py` (`IS_KAGGLE`, `IS_COLAB`;
+neither means local):
+
+1. **Kaggle Notebooks — primary training environment.** Two Tesla T4s,
+   TensorFlow 2.20 preinstalled with both GPUs visible, internet enabled.
+   Detected by the presence of `/kaggle/input`, not an environment variable
+   (Kaggle doesn't reliably set one the way `google.colab` is reliably
+   importable). **`/kaggle/input` is read-only.** PlantVillage and the
+   negatives source are attached there as pre-extracted notebook inputs —
+   no download, no zip, no tar. Nothing may ever be written under
+   `/kaggle/input`; every write (caches, staging, artifacts, checkpoints)
+   goes to `/kaggle/working`, the one location Kaggle guarantees is
+   writable for the session. See `src/config.py`'s
+   `KAGGLE_PLANTVILLAGE_COLOR_DIR` / `KAGGLE_NEGATIVES_SEG_TRAIN_DIR` for
+   the exact mount paths, and `src/models/checkpoint.py`'s module docstring
+   for exactly what "resume" means here: `/kaggle/working` survives an
+   in-session crash or
+   cell re-run, but NOT a full session restart or the ~9-12 hour session
+   time limit, unless the notebook is explicitly committed with outputs
+   saved and manually re-attached next session — nothing in this codebase
+   automates that hand-off.
+2. **Google Colab — fallback.** Only usable while a free-tier GPU happens
+   to be attached (not guaranteed). PlantVillage/PlantDoc/negatives are
+   downloaded via the Kaggle API and persisted to Google Drive as cold
+   storage (see `src/data/download.py`'s module docstring) — a design that
+   exists only because Colab has no equivalent to Kaggle's pre-mounted
+   inputs.
+3. **Local Windows machine — code and tests only.** No CUDA GPU. Never runs
+   real training or a full dataset download (rule 10). Smoke tests only, on
+   at most 200 images.
+
 ## Stack (locked)
 
 - **Language/runtime**: Python 3.11.
-- **Training**: TensorFlow / Keras 3, executed on Google Colab free T4 —
-  never assume a local GPU.
+- **Training**: TensorFlow / Keras 3, executed on Kaggle Notebooks (two
+  Tesla T4s, primary) or Google Colab (free T4, fallback) — never assume a
+  local GPU.
 - **On-device inference**: LiteRT (TFLite), INT8 quantized.
 - **App**: Kotlin + Jetpack Compose + CameraX, `minSdk 24`.
 - **Explicitly ruled out**: PyTorch, ONNX, Flutter, React Native, and any
@@ -98,6 +134,11 @@ feels like a shortcut.
   test set.
 
 ## Data storage on Colab: local disk vs Drive
+
+This section is Colab-only. Kaggle has no equivalent tradeoff to make: both
+datasets arrive pre-mounted and pre-extracted (see "Environments" above),
+so there is no download, no extraction, and no cold-storage/local-disk
+split to design around there.
 
 Google Drive, mounted via FUSE in a Colab session, writes and stats small
 files at only a few dozen per second — extracting the ~54,000-image
