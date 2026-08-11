@@ -624,6 +624,98 @@ TFLITE_CONFIG = {
 TFLITE_OUTPUT_DIR = ARTIFACTS_DIR / "tflite"
 
 # ---------------------------------------------------------------------------
+# Evaluation (src/evaluate/) — Day 8 full evaluation suite
+# ---------------------------------------------------------------------------
+# Single JSON every report/README/figure number is read from (CLAUDE.md rule
+# 5) — src/evaluate/runner.py is the only thing that writes it.
+RESULTS_JSON_PATH = ARTIFACTS_DIR / "results.json"
+EVAL_FIGURES_DIR = ARTIFACTS_DIR / "figures"
+
+# The real, non-placeholder Android metadata contract (see
+# src/export/to_tflite.py's docstring and android/README.md): class_names,
+# image_size, confidence_threshold. src/evaluate/ood.py updates only the
+# confidence_threshold field here once a real threshold is tuned, ahead of
+# the Day-9 model.tflite swap — every other field (including "placeholder")
+# is left untouched since the .tflite itself is still the placeholder.
+ANDROID_MODEL_METADATA_PATH = REPO_ROOT / "android" / "app" / "src" / "main" / "assets" / "model_metadata.json"
+
+# Test-set evaluation (src/evaluate/metrics.py). A 38x38 confusion matrix is
+# unreadable as a headline number — this is how many off-diagonal (true,
+# predicted) pairs get surfaced instead, ranked by raw count.
+NUM_TOP_CONFUSED_PAIRS = 10
+
+# Calibration (src/evaluate/calibration.py). ECE_NUM_BINS=15 is the standard
+# choice from Guo et al. 2017 ("On Calibration of Modern Neural Networks").
+# Temperature is fit by grid search (never a magic single value) over
+# [TEMPERATURE_GRID_MIN, TEMPERATURE_GRID_MAX] in TEMPERATURE_GRID_STEP
+# increments, minimizing validation NLL — a 1-parameter search, so grid
+# search is exact enough and avoids adding a scipy.optimize dependency.
+ECE_NUM_BINS = 15
+TEMPERATURE_GRID_MIN = 0.5
+TEMPERATURE_GRID_MAX = 5.0
+TEMPERATURE_GRID_STEP = 0.01
+
+# Out-of-distribution rejection (src/evaluate/ood.py). Max-softmax
+# confidence thresholds tested 0.00..1.00 inclusive in this step size, when
+# choosing the operating point that best separates validation (in-
+# distribution) from the Intel negatives (out-of-distribution).
+OOD_THRESHOLD_GRID_STEP = 0.01
+
+# Robustness (src/evaluate/robustness.py): corruption types a phone camera
+# actually produces, at 3 severities each. Every severity map below must
+# cover exactly ROBUSTNESS_SEVERITIES — asserted below rather than assumed.
+ROBUSTNESS_CORRUPTIONS = (
+    "blur",
+    "gaussian_noise",
+    "brightness_up",
+    "brightness_down",
+    "rotation",
+    "jpeg_compression",
+)
+ROBUSTNESS_SEVERITIES = (1, 2, 3)
+# Gaussian blur: depthwise-conv sigma per severity (same op family as
+# src/data/augment.py's random_gaussian_blur, but deterministic per severity
+# rather than randomly sampled) and a fixed kernel size wide enough to
+# actually resolve the largest sigma below.
+ROBUSTNESS_BLUR_SIGMA = {1: 1.0, 2: 2.0, 3: 3.0}
+ROBUSTNESS_BLUR_KERNEL_SIZE = 9
+# Additive Gaussian noise stddev, on a float32 [0, 1] image.
+ROBUSTNESS_GAUSSIAN_NOISE_STDDEV = {1: 0.05, 2: 0.10, 3: 0.20}
+# tf.image.adjust_brightness delta, on a float32 [0, 1] image.
+ROBUSTNESS_BRIGHTNESS_UP_DELTA = {1: 0.10, 2: 0.20, 3: 0.35}
+ROBUSTNESS_BRIGHTNESS_DOWN_DELTA = {1: 0.10, 2: 0.20, 3: 0.35}
+# Degrees, applied via a fixed-factor (lo == hi) keras.layers.RandomRotation
+# — the same layer src/data/augment.py uses for random rotation, but with a
+# degenerate range so the angle is deterministic per severity instead of
+# sampled.
+ROBUSTNESS_ROTATION_DEGREES = {1: 10.0, 2: 20.0, 3: 30.0}
+# tf.image.adjust_jpeg_quality quality level (0-100); lower == more severe
+# compression artifacting.
+ROBUSTNESS_JPEG_QUALITY = {1: 50, 2: 30, 3: 10}
+for _map in (
+    ROBUSTNESS_BLUR_SIGMA,
+    ROBUSTNESS_GAUSSIAN_NOISE_STDDEV,
+    ROBUSTNESS_BRIGHTNESS_UP_DELTA,
+    ROBUSTNESS_BRIGHTNESS_DOWN_DELTA,
+    ROBUSTNESS_ROTATION_DEGREES,
+    ROBUSTNESS_JPEG_QUALITY,
+):
+    assert set(_map) == set(ROBUSTNESS_SEVERITIES), (
+        f"Every ROBUSTNESS_* severity map must have exactly one entry per "
+        f"ROBUSTNESS_SEVERITIES {ROBUSTNESS_SEVERITIES}, got keys {sorted(_map)}."
+    )
+del _map
+
+# Grad-CAM (src/evaluate/gradcam.py): sample counts, never a curated-only
+# "successes" set — incorrect predictions and PlantDoc failures are sampled
+# just as deliberately as correct ones (CLAUDE.md rule 1's spirit: an honest
+# result, not a flattering one).
+GRADCAM_NUM_CORRECT_SAMPLES = 8
+GRADCAM_NUM_INCORRECT_SAMPLES = 8
+GRADCAM_NUM_PLANTDOC_FAILURE_SAMPLES = 6
+GRADCAM_OVERLAY_ALPHA = 0.4
+
+# ---------------------------------------------------------------------------
 # Dataset provenance
 # ---------------------------------------------------------------------------
 # Written by src/data/download.py after each successful download: source,
