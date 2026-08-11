@@ -5,8 +5,8 @@ what the model is actually fed rather than trusting the code alone
 
 Uses pipeline.build_visualization_datasets(), not build_datasets(): that
 variant skips the backbone-specific preprocess_input step, so images stay
-viewable float32 [0, 1] regardless of which of the 5 candidate backbones is
-eventually chosen for training.
+viewable float32 [0, 1] regardless of which config.CANDIDATE_MODELS backbone
+is eventually chosen for training.
 """
 
 import math

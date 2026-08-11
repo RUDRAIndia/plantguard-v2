@@ -449,33 +449,40 @@ MIN_NEGATIVES_TAR_BYTES = 20_000_000
 # ---------------------------------------------------------------------------
 # Candidate model architectures
 # ---------------------------------------------------------------------------
-# All five are keras.applications names for small, mobile-friendly backbones
-# suitable for LiteRT INT8 export and CameraX-based inference on minSdk 24
-# devices. Final architecture selection happens later, on the validation
-# set only (CLAUDE.md rule 2) — this list is just the candidate pool.
+# keras.applications names for small, mobile-friendly backbones suitable for
+# LiteRT INT8 export and CameraX-based inference on minSdk 24 devices. Final
+# architecture selection happens later, on the validation set only
+# (CLAUDE.md rule 2) — this list is just the candidate pool.
+#
+# EfficientNetB0 was dropped from this pool on 2026-08-11: its Kaggle
+# training run failed with a 404 from the Kaggle API (src/models/
+# kaggle_persist.py's checkpoint push/restore), and per src/train_all.py's
+# module docstring — the exact incident that runner was written to survive
+# — a persistence-layer 404 is not retried; the model was left out rather
+# than spending further budget on it with 6 days left in the project. The
+# comparison is exactly the remaining four: MobileNetV2, MobileNetV3Small,
+# MobileNetV3Large, EfficientNetV2B0.
 CANDIDATE_MODELS = (
     "MobileNetV2",
     "MobileNetV3Small",
     "MobileNetV3Large",
-    "EfficientNetB0",
     "EfficientNetV2B0",
 )
 
 # ---------------------------------------------------------------------------
 # Per-backbone preprocessing (src/data/pipeline.py)
 # ---------------------------------------------------------------------------
-# Each of the 5 CANDIDATE_MODELS expects its own normalization (e.g.
+# Each CANDIDATE_MODELS entry expects its own normalization (e.g.
 # MobileNetV2 rescales to [-1, 1]; EfficientNet's preprocess_input is close
 # to a no-op because the model itself embeds a Rescaling/Normalization
-# layer) — using one normalization for all five would silently feed several
-# of them mis-scaled input. Stored as plain (module, function) name strings,
+# layer) — using one normalization for all of them would silently feed
+# several mis-scaled input. Stored as plain (module, function) name strings,
 # not live imports, so this file stays importable without TensorFlow
 # installed; src/data/pipeline.py resolves the callable via importlib.
 PREPROCESSING_ENTRYPOINTS = {
     "MobileNetV2": ("keras.applications.mobilenet_v2", "preprocess_input"),
     "MobileNetV3Small": ("keras.applications.mobilenet_v3", "preprocess_input"),
     "MobileNetV3Large": ("keras.applications.mobilenet_v3", "preprocess_input"),
-    "EfficientNetB0": ("keras.applications.efficientnet", "preprocess_input"),
     "EfficientNetV2B0": ("keras.applications.efficientnet_v2", "preprocess_input"),
 }
 assert set(PREPROCESSING_ENTRYPOINTS) == set(CANDIDATE_MODELS), (
@@ -491,7 +498,7 @@ DROPOUT_RATE = 0.3
 
 # Per-backbone count of "last N blocks" src/models/build.py's
 # unfreeze_top_blocks() unfreezes for phase-2 fine-tuning. Block structure
-# differs across the 5 CANDIDATE_MODELS (different depths, different naming
+# differs across CANDIDATE_MODELS (different depths, different naming
 # conventions), so this is a per-backbone value, never a single shared
 # constant — see BACKBONE_BLOCK_NAME_PATTERNS below for how each
 # architecture's blocks are actually identified.
@@ -499,7 +506,6 @@ UNFREEZE_BLOCKS = {
     "MobileNetV2": 3,        # unfreezes inverted-residual blocks 14-16 of 16
     "MobileNetV3Small": 3,   # unfreezes blocks 8-10 of 10
     "MobileNetV3Large": 3,   # unfreezes blocks 12-14 of 14
-    "EfficientNetB0": 2,     # unfreezes stages 6-7 of 7
     "EfficientNetV2B0": 2,   # unfreezes stages 5-6 of 6
 }
 assert set(UNFREEZE_BLOCKS) == set(CANDIDATE_MODELS), (
@@ -513,7 +519,7 @@ assert set(UNFREEZE_BLOCKS) == set(CANDIDATE_MODELS), (
 # include_top=False, pooling="avg"):
 #   - MobileNetV2:                "block_<N>_..."       N = 1..16
 #   - MobileNetV3Small/Large:     "expanded_conv_<N>_..." N = 1..10 / 1..14
-#   - EfficientNetB0/V2B0:        "block<N><letter>_..."  N = stage 1..7 / 1..6
+#   - EfficientNetV2B0:           "block<N><letter>_..."  N = stage 1..6
 # The first block of every family (MobileNetV2/V3's block 0, EfficientNet's
 # stage-less stem) doesn't match and is therefore never a candidate for
 # unfreezing — correct, since "last N blocks" always means the deepest ones.
@@ -521,7 +527,6 @@ BACKBONE_BLOCK_NAME_PATTERNS = {
     "MobileNetV2": r"^block_(\d+)_",
     "MobileNetV3Small": r"^expanded_conv_(\d+)_",
     "MobileNetV3Large": r"^expanded_conv_(\d+)_",
-    "EfficientNetB0": r"^block(\d+)[a-z]_",
     "EfficientNetV2B0": r"^block(\d+)[a-z]_",
 }
 assert set(BACKBONE_BLOCK_NAME_PATTERNS) == set(CANDIDATE_MODELS), (
@@ -542,14 +547,17 @@ BACKBONE_LR_FACTOR = 0.1
 
 PHASE1_EPOCHS = 15
 # Measured on the first real Kaggle run (T4, MobileNetV3Small — the
-# smallest of the 5 CANDIDATE_MODELS, so the fastest per epoch and the
-# most epoch-budget-generous case): 207 s/epoch. At that rate PHASE1_EPOCHS
-# (15) is ~52 min; the original PHASE2_EPOCHS of 30 would have added
-# another ~1h45 per model, ~2.5h per model / ~12.5 GPU-hours for all 5 —
-# too much of an 8-day remaining budget that still has Android work ahead.
-# 12 keeps phase 2 to ~41 min worst-case (no early stop), ~1.5h/model,
-# ~7.75 GPU-hours across all 5 in the worst case, less in practice since
-# EARLY_STOPPING_PATIENCE below usually triggers first.
+# smallest of CANDIDATE_MODELS, so the fastest per epoch and the most
+# epoch-budget-generous case): 207 s/epoch. At that rate PHASE1_EPOCHS (15)
+# is ~52 min; the original PHASE2_EPOCHS of 30 would have added another
+# ~1h45 per model, ~2.5h per model / ~12.5 GPU-hours for all 5 models
+# originally planned (before EfficientNetB0 was dropped — see
+# CANDIDATE_MODELS' comment) — too much of an 8-day remaining budget that
+# still has Android work ahead. 12 keeps phase 2 to ~41 min worst-case (no
+# early stop), ~1.5h/model, ~7.75 GPU-hours across those 5 in the worst
+# case, less in practice since EARLY_STOPPING_PATIENCE below usually
+# triggers first — now ~6.2 GPU-hours worst-case across the 4 remaining
+# candidates.
 PHASE2_EPOCHS = 12
 
 # Lowered from 5: at PHASE2_EPOCHS=12, a patience of 5 lets a plateaued run

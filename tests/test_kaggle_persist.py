@@ -158,10 +158,10 @@ def test_pushing_one_model_never_deletes_another_already_persisted_model(fake_ap
     # Model B's push must not wipe out model A's already-persisted files,
     # even though dataset_create_version() is a full-snapshot replace.
     ckpt_b = _make_checkpoint_dir(tmp_path, "ckpt_b", {"phase1.weights.h5": "b-weights"})
-    kaggle_persist.push_checkpoint("EfficientNetB0", ckpt_b)
+    kaggle_persist.push_checkpoint("EfficientNetV2B0", ckpt_b)
 
     assert fake_api.files["MobileNetV2__phase2.weights.h5"] == b"a-weights"
-    assert fake_api.files["EfficientNetB0__phase1.weights.h5"] == b"b-weights"
+    assert fake_api.files["EfficientNetV2B0__phase1.weights.h5"] == b"b-weights"
 
 
 def test_push_checkpoint_refuses_to_push_an_empty_directory(fake_api, tmp_path):
@@ -200,10 +200,10 @@ def test_push_checkpoint_retries_transient_404_then_succeeds(fake_api, tmp_path,
     # async-ingestion race), then succeeds on the third attempt.
     fake_api.raise_on_download = [_http_error(404), _http_error(404)]
     ckpt_b = _make_checkpoint_dir(tmp_path, "ckpt_b", {"phase1.weights.h5": "b"})
-    kaggle_persist.push_checkpoint("EfficientNetB0", ckpt_b)
+    kaggle_persist.push_checkpoint("EfficientNetV2B0", ckpt_b)
 
     assert fake_api.files["MobileNetV2__phase1.weights.h5"] == b"a"
-    assert fake_api.files["EfficientNetB0__phase1.weights.h5"] == b"b"
+    assert fake_api.files["EfficientNetV2B0__phase1.weights.h5"] == b"b"
     assert fake_api.raise_on_download == []  # both queued errors were consumed
 
 
@@ -219,7 +219,7 @@ def test_push_checkpoint_raises_a_safe_message_when_download_retries_exhaust(fak
     ckpt_b = _make_checkpoint_dir(tmp_path, "ckpt_b", {"phase1.weights.h5": "new"})
 
     with pytest.raises(RuntimeError) as exc_info:
-        kaggle_persist.push_checkpoint("EfficientNetB0", ckpt_b)
+        kaggle_persist.push_checkpoint("EfficientNetV2B0", ckpt_b)
 
     message = str(exc_info.value)
     assert "uploaded NOTHING" in message
@@ -232,7 +232,7 @@ def test_push_checkpoint_raises_a_safe_message_when_download_retries_exhaust(fak
     assert fake_api.version_calls == 0
     assert fake_api.create_calls == 1  # only from the first (MobileNetV2) push
     assert fake_api.files["MobileNetV2__phase2.weights.h5"] == b"already-safe"
-    assert "EfficientNetB0__phase1.weights.h5" not in fake_api.files
+    assert "EfficientNetV2B0__phase1.weights.h5" not in fake_api.files
 
 
 def test_push_checkpoint_does_not_retry_a_non_transient_download_error(fake_api, tmp_path, monkeypatch):
@@ -246,7 +246,7 @@ def test_push_checkpoint_does_not_retry_a_non_transient_download_error(fake_api,
     ckpt_b = _make_checkpoint_dir(tmp_path, "ckpt_b", {"phase1.weights.h5": "b"})
 
     with pytest.raises(RuntimeError, match="uploaded NOTHING"):
-        kaggle_persist.push_checkpoint("EfficientNetB0", ckpt_b)
+        kaggle_persist.push_checkpoint("EfficientNetV2B0", ckpt_b)
 
     assert sleep_calls == []  # never retried
     # The first push (MobileNetV2) never downloads at all -- the dataset
@@ -302,7 +302,7 @@ def test_restore_checkpoint_downloads_persisted_files_for_a_fresh_session(fake_a
     fake_api.files["MobileNetV2__state.json"] = b'{"phase": 1, "epoch": 4}'
     fake_api.files["MobileNetV2__phase1_complete.json"] = b'{"epochs_ran": 5}'
     # A different model's file must never leak into this model's restore.
-    fake_api.files["EfficientNetB0__phase1.weights.h5"] = b"other-model"
+    fake_api.files["EfficientNetV2B0__phase1.weights.h5"] = b"other-model"
     # history/manifest belong in artifacts/, not the checkpoint dir.
     fake_api.files["MobileNetV2__history_MobileNetV2.json"] = b"{}"
 
@@ -313,7 +313,7 @@ def test_restore_checkpoint_downloads_persisted_files_for_a_fresh_session(fake_a
     assert (checkpoint_dir / "phase1.weights.h5").read_bytes() == b"persisted-weights"
     assert json.loads((checkpoint_dir / "state.json").read_text()) == {"phase": 1, "epoch": 4}
     assert (checkpoint_dir / "phase1_complete.json").is_file()
-    assert not (checkpoint_dir / "EfficientNetB0__phase1.weights.h5").exists()
+    assert not (checkpoint_dir / "EfficientNetV2B0__phase1.weights.h5").exists()
     assert not (checkpoint_dir / "history_MobileNetV2.json").exists()
 
 
@@ -352,8 +352,8 @@ def test_report_progress_reflects_each_models_persisted_state(fake_api):
     fake_api.files["MobileNetV2__history_MobileNetV2.json"] = json.dumps(
         {"phase1": {"val_macro_f1": [0.1, 0.2]}, "phase2": {"val_macro_f1": [0.3, 0.5, 0.4]}}
     ).encode("utf-8")
-    # EfficientNetB0: mid phase 1, no history yet.
-    fake_api.files["EfficientNetB0__phase1.weights.h5"] = b"w"
+    # EfficientNetV2B0: mid phase 1, no history yet.
+    fake_api.files["EfficientNetV2B0__phase1.weights.h5"] = b"w"
     # Every other CANDIDATE_MODELS entry has nothing persisted at all.
 
     report = kaggle_persist_report.report_progress()
@@ -362,11 +362,11 @@ def test_report_progress_reflects_each_models_persisted_state(fake_api):
     assert report["MobileNetV2"]["phase_reached"] == "phase 2 complete"
     assert report["MobileNetV2"]["best_val_macro_f1"] == pytest.approx(0.5)
 
-    assert report["EfficientNetB0"]["checkpoint_exists"] is True
-    assert report["EfficientNetB0"]["phase_reached"] == "phase 1 in progress"
-    assert report["EfficientNetB0"]["best_val_macro_f1"] is None
+    assert report["EfficientNetV2B0"]["checkpoint_exists"] is True
+    assert report["EfficientNetV2B0"]["phase_reached"] == "phase 1 in progress"
+    assert report["EfficientNetV2B0"]["best_val_macro_f1"] is None
 
-    untouched = set(config.CANDIDATE_MODELS) - {"MobileNetV2", "EfficientNetB0"}
+    untouched = set(config.CANDIDATE_MODELS) - {"MobileNetV2", "EfficientNetV2B0"}
     for model_name in untouched:
         assert report[model_name]["checkpoint_exists"] is False
         assert report[model_name]["phase_reached"] == "not started"

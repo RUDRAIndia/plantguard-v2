@@ -33,7 +33,6 @@ _BACKBONE_CONSTRUCTORS = {
     "MobileNetV2": keras.applications.MobileNetV2,
     "MobileNetV3Small": keras.applications.MobileNetV3Small,
     "MobileNetV3Large": keras.applications.MobileNetV3Large,
-    "EfficientNetB0": keras.applications.EfficientNetB0,
     "EfficientNetV2B0": keras.applications.EfficientNetV2B0,
 }
 assert set(_BACKBONE_CONSTRUCTORS) == set(config.CANDIDATE_MODELS), (

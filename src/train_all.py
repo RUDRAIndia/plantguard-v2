@@ -22,10 +22,10 @@ the cross-session Kaggle-persisted state (src/models/kaggle_persist_report.py),
 since a fresh Kaggle session's local checkpoint dir starts out empty even
 for a model that already finished in an earlier session.
 
-Run (Kaggle/Colab, real training, all 5 models):
+Run (Kaggle/Colab, real training, every config.CANDIDATE_MODELS entry):
     python -m src.train_all
 Run a subset:
-    python -m src.train_all --only MobileNetV2 EfficientNetB0
+    python -m src.train_all --only MobileNetV2 EfficientNetV2B0
 Exercise the runner itself without real data/GPU time (CLAUDE.md rule 10 --
 local runs are smoke tests only):
     python -m src.train_all --smoke --no-persist
@@ -127,8 +127,8 @@ def _run_one_model(model_name: str, smoke: bool, persist: bool) -> dict:
 def _print_summary(results: list) -> bool:
     """Prints the summary table. Returns whether every model is accounted
     for as complete or already-skipped (used for the process exit code) --
-    the one thing this run must never let the caller mistake for "all 5
-    models finished."
+    the one thing this run must never let the caller mistake for "every
+    candidate model finished."
     """
     print(f"\n{'=' * 70}\n[train_all] Summary\n{'=' * 70}")
     header = f"{'Model':<20}{'Status':<12}{'Best val macro-F1':<20}"
