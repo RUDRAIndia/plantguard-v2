@@ -48,6 +48,25 @@ rather than being logged and swallowed: a silent persistence failure is
 only discovered after the session that would have been protected by it is
 already gone, which is worse than no persistence at all.
 
+**The download-after-upload race.** Kaggle ingests a new dataset version
+asynchronously: `dataset_create_version`/`dataset_create_new` returning
+"ok" only means the upload was accepted, not that the version has finished
+processing server-side. A `dataset_download_files` call moments later (the
+very next push_checkpoint() call's merge-download, or restore_checkpoint()
+racing a push from another session) can therefore 404 even though the
+prior upload fully succeeded and that content is safe.
+src/models/kaggle_retry.py's call_with_retry() retries such 404s (and
+5xx/network errors) with bounded exponential backoff before giving up
+(split into its own module to stay under CLAUDE.md rule 12's ~300-line
+guideline). If it still fails after retries, the resulting
+error is deliberately worded differently from an upload failure: a failed
+*download* means nothing new was uploaded this call — anything already
+persisted by a previous successful push is untouched — whereas a failed
+*upload* (`_check_create_result`/the `dataset_create_version` except block
+below) means this call's content genuinely never made it to Kaggle. Those
+are very different situations for whoever is watching the session and must
+never be reported with the same message.
+
 **What this module cannot test outside Kaggle.** kaggle_secrets and a live
 authenticated Kaggle Dataset are only available on an actual Kaggle
 notebook instance — every function here is unit-tested against a mocked
@@ -68,6 +87,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src import config  # noqa: E402
 from src.data import kaggle_auth  # noqa: E402
+from src.models import kaggle_retry  # noqa: E402
 
 _SEPARATOR = "__"
 
@@ -169,7 +189,22 @@ def push_checkpoint(model_name: str, checkpoint_dir: Path, *, include_artifacts:
 
     already_exists = _dataset_exists(api, dataset_ref)
     if already_exists:
-        api.dataset_download_files(dataset_ref, path=str(staging), unzip=True, quiet=True)
+        try:
+            kaggle_retry.call_with_retry(
+                lambda: api.dataset_download_files(dataset_ref, path=str(staging), unzip=True, quiet=True),
+                description=f"Downloading existing '{dataset_ref}' content to merge before pushing {model_name}",
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not download existing Kaggle dataset '{dataset_ref}' content to merge "
+                f"before pushing {model_name}'s checkpoint, even after retrying: {exc}. "
+                "IMPORTANT: this call uploaded NOTHING — whatever was already durably "
+                f"persisted on Kaggle from a previous successful push (for {model_name} or any "
+                "other model) is untouched and safe. Only this call's own new content "
+                f"({checkpoint_dir}"
+                f"{', plus history/manifest artifacts' if include_artifacts else ''}) was not "
+                "uploaded this round — retry the push to persist it."
+            ) from exc
 
     prefix = model_name + _SEPARATOR
     for stale in staging.glob(prefix + "*"):
@@ -234,7 +269,17 @@ def restore_checkpoint(model_name: str, checkpoint_dir: Path) -> bool:
         return False
 
     staging = _fresh_staging_dir()
-    api.dataset_download_files(dataset_ref, path=str(staging), unzip=True, quiet=True)
+    try:
+        kaggle_retry.call_with_retry(
+            lambda: api.dataset_download_files(dataset_ref, path=str(staging), unzip=True, quiet=True),
+            description=f"Downloading persisted '{dataset_ref}' content to restore {model_name}",
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            f"Could not download persisted Kaggle dataset '{dataset_ref}' content to restore "
+            f"{model_name}'s checkpoint, even after retrying: {exc}. Nothing was restored — "
+            f"{model_name} will start from scratch this session unless this is resolved."
+        ) from exc
 
     prefix = model_name + _SEPARATOR
     restored_files = list(staging.glob(prefix + "*"))

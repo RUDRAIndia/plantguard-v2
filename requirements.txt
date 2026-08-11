@@ -3,6 +3,7 @@
 # imported by committed code appear here — nothing is added preemptively.
 
 kaggle==2.2.4       # src/data/download.py — Kaggle API client for PlantVillage
+requests==2.34.2    # src/models/kaggle_persist.py — HTTPError/ConnectionError/Timeout classification for retry
 Pillow==12.3.0      # src/data/inventory.py — image dimension/corruption checks
 imagehash==4.3.2    # src/data/dedupe.py — perceptual hashing (phash) for duplicate grouping
 pytest==9.0.3       # tests/ — test runner
