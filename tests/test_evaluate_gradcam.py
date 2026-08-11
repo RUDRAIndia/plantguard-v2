@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from src import config
 from src.evaluate import gradcam
@@ -72,3 +73,57 @@ def test_compute_heatmap_shape_and_range(real_model):
     assert heatmap.ndim == 2
     assert heatmap.min() >= 0.0
     assert heatmap.max() <= 1.0 + 1e-5
+
+
+def _write_synthetic_images(directory: Path, n: int) -> list:
+    directory.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for i in range(n):
+        path = directory / f"img{i}.jpg"
+        Image.new("RGB", (60, 45), color=((i * 40) % 256, (i * 80) % 256, (i * 120) % 256)).save(path)
+        paths.append(str(path))
+    return paths
+
+
+def test_generate_gradcam_samples_wires_plantdoc_failures_correctly(real_model, tmp_path, monkeypatch):
+    """End-to-end, real-model check of item 5's mechanism: given a known
+    correct/incorrect split for both the PlantVillage-test-shaped and
+    PlantDoc-shaped inputs, generate_gradcam_samples must (a) pick exactly
+    the mispredicted PlantDoc indices, never a correct one, (b) attribute
+    each sample's true/predicted class names using config.PLANTVILLAGE_
+    CLASS_NAMES at the right index (never a PlantDoc-local index -- same
+    concern as the label-mapping audit), and (c) actually write a heatmap
+    PNG to disk for every sample claimed in its return value. This does not
+    (and cannot, without the real trained checkpoint and real PlantDoc
+    images) prove the heatmaps land on leaves rather than background --
+    only that the sampling/attribution/file-writing plumbing feeding that
+    visual judgment is correct.
+    """
+    monkeypatch.setattr(config, "EVAL_FIGURES_DIR", tmp_path / "figures")
+
+    test_paths = _write_synthetic_images(tmp_path / "test", 4)
+    test_true = np.array([0, 0, 1, 1])
+    test_pred = np.array([0, 1, 1, 0])  # idx 1, 3 wrong
+
+    plantdoc_paths = _write_synthetic_images(tmp_path / "plantdoc", 3)
+    plantdoc_true = np.array([0, 1, 2])
+    plantdoc_pred = np.array([0, 1, 0])  # only idx 2 wrong
+
+    result = gradcam.generate_gradcam_samples(
+        real_model, MODEL_NAME, test_true, test_pred, test_paths, plantdoc_true, plantdoc_pred, plantdoc_paths
+    )
+
+    assert result["num_correct_sampled"] == 2
+    assert result["num_incorrect_sampled"] == 2
+    assert result["num_plantdoc_failures_sampled"] == 1
+    assert result["num_samples"] == 5
+
+    plantdoc_samples = [s for s in result["samples"] if s["group"] == "plantdoc_failure"]
+    assert len(plantdoc_samples) == 1
+    sample = plantdoc_samples[0]
+    assert sample["source_path"] == plantdoc_paths[2]
+    assert sample["true_class"] == config.PLANTVILLAGE_CLASS_NAMES[2]
+    assert sample["predicted_class"] == config.PLANTVILLAGE_CLASS_NAMES[0]
+
+    for s in result["samples"]:
+        assert Path(s["figure_path"]).is_file()

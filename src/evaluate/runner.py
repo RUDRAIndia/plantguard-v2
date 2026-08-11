@@ -31,6 +31,31 @@ from src.evaluate import calibration, external, gradcam, inference, metrics, mod
 from src.models import training_utils  # noqa: E402
 
 
+def _print_plantdoc_summary(plantdoc_results: dict) -> None:
+    """Surfaces macro-F1 and the exact/convention/forced confidence-tier
+    breakdown on the console — both are already computed and written into
+    results.json by external.py, but only accuracy used to be printed here.
+    A tier breakdown that's far worse for convention/forced than exact is
+    informative about the hand-written mapping itself, not the model, so
+    it belongs in plain view during the run, not only in the JSON.
+    """
+    overall = plantdoc_results["overall"]
+    print(
+        f"[runner]   overall: accuracy={overall['accuracy']:.4f} macro_f1={overall['macro_f1']:.4f} "
+        f"({overall['num_images']} images, {plantdoc_results['num_covered_classes']}/"
+        f"{plantdoc_results['num_plantvillage_classes']} PlantVillage classes covered)"
+    )
+    for tier, tier_result in plantdoc_results["mapping_confidence_tier_breakdown"].items():
+        accuracy = tier_result["accuracy"]
+        macro_f1 = tier_result["macro_f1"]
+        accuracy_str = f"{accuracy:.4f}" if accuracy is not None else "n/a"
+        macro_f1_str = f"{macro_f1:.4f}" if macro_f1 is not None else "n/a"
+        print(
+            f"[runner]     {tier:<10} accuracy={accuracy_str} macro_f1={macro_f1_str} "
+            f"({tier_result['num_images']} images)"
+        )
+
+
 def run() -> dict:
     print("[runner] Step 1/7: model selection (validation macro-F1 only)...")
     selection = model_selection.select_best_model()
@@ -50,7 +75,7 @@ def run() -> dict:
     plantdoc_results, plantdoc_y_true, plantdoc_y_pred, plantdoc_paths = external.evaluate_plantdoc(
         model, selected_model_name
     )
-    print(f"[runner]   PlantDoc accuracy={plantdoc_results['overall']['accuracy']}")
+    _print_plantdoc_summary(plantdoc_results)
 
     print("[runner] Step 4/7: calibration (ECE + temperature scaling)...")
     calibration_results = calibration.run_calibration(model, selected_model_name, test_y_true, test_y_prob)
