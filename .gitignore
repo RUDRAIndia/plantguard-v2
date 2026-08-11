@@ -25,6 +25,10 @@ artifacts/*
 *.hdf5
 *.keras
 *.tflite
+# Exception: the Android app's bundled placeholder/real model asset is a
+# real, intentionally committed artifact (see android/README.md) — without
+# it the app can't build in a fresh clone or CI.
+!android/app/src/main/assets/model.tflite
 *.pb
 *.ckpt
 *.ckpt.*

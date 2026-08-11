@@ -39,5 +39,5 @@ tests/             # smoke tests (local, ≤200 images)
 colab/             # Colab runner notebook(s)
 artifacts/         # gitignored: trained models, figures, metrics JSONs
 docs/
-android/           # Kotlin/Compose app (not yet started)
+android/           # Kotlin/Compose app — see android/README.md
 ```

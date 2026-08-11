@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "_readme": "PLACEHOLDER CONTENT. Only 3 of the 38 classes have entries below, purely to show the shape of the schema. Every field is a stand-in and must be replaced with text checked against a real agronomic source before submission (see android/README.md's ICAR-citation note). No entry may ever name a chemical or a dosage (CLAUDE.md rule 8) — 'management' stays generic (sanitation, resistant varieties, cultural practice) plus the KVK/extension-officer line, which the Result screen also always shows on its own regardless of what's in this file.",
+  "entries": {
+    "Apple___Apple_scab": {
+      "display_name": "Apple - Apple scab",
+      "symptoms": "PLACEHOLDER/TODO: e.g. olive-green to black velvety spots on leaves and fruit, later cracking fruit skin. Verify against a real source before shipping.",
+      "management": "PLACEHOLDER/TODO: generic, non-chemical guidance only (e.g. remove and destroy fallen leaves at season end, prune for airflow). No chemical names or dosages, per project rules.",
+      "citation": "PLACEHOLDER/TODO: ICAR citation pending.",
+      "status": "placeholder"
+    },
+    "Potato___Early_blight": {
+      "display_name": "Potato - Early blight",
+      "symptoms": "PLACEHOLDER/TODO: e.g. dark concentric-ring (\"target board\") spots on older, lower leaves first. Verify against a real source before shipping.",
+      "management": "PLACEHOLDER/TODO: generic, non-chemical guidance only (e.g. crop rotation, avoid overhead irrigation that wets foliage). No chemical names or dosages, per project rules.",
+      "citation": "PLACEHOLDER/TODO: ICAR citation pending.",
+      "status": "placeholder"
+    },
+    "Tomato___Late_blight": {
+      "display_name": "Tomato - Late blight",
+      "symptoms": "PLACEHOLDER/TODO: e.g. water-soaked pale-green to brown lesions on leaves/stems that spread rapidly in cool, wet weather. Verify against a real source before shipping.",
+      "management": "PLACEHOLDER/TODO: generic, non-chemical guidance only (e.g. improve field drainage/airflow, remove and destroy infected plants promptly). No chemical names or dosages, per project rules.",
+      "citation": "PLACEHOLDER/TODO: ICAR citation pending.",
+      "status": "placeholder"
+    }
+  }
+}

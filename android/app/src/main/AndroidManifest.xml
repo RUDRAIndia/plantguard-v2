@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Camera capture only. Deliberately no storage permission of any
+         kind: the gallery path uses ActivityResultContracts.PickVisualMedia
+         (the system Photo Picker), which needs zero permissions on every
+         API level back to minSdk 24. And deliberately no INTERNET
+         permission anywhere in this file, ever (CLAUDE.md, binding) — this
+         app is fully offline; with no INTERNET permission granted, Android
+         will not let this app open a socket at all, so there is no network
+         security config to write either. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- required="false": a camera-less device can still install the app
+         and use the gallery-picker path only. -->
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:supportsRtl="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
