@@ -12,8 +12,11 @@ runs genuinely different, corrupted inputs through the model; no step here
 selects a model, tunes a threshold, or makes any decision using the test
 split's clean predictions beyond what Step 2 already reported.
 
-Run (Kaggle, once every config.CANDIDATE_MODELS entry has a real
-train_manifest_*/history_*.json from src/train_all.py):
+Run (Kaggle, once every config.CANDIDATE_MODELS entry has a real trained
+checkpoint from src/train_all.py — either locally in config.CHECKPOINT_DIR
+or restorable from it, since src/evaluate/model_selection.py restores and
+recomputes each candidate's validation macro-F1 directly from its
+checkpoint, never from a training-log history file):
     python -m src.evaluate.runner
 """
 

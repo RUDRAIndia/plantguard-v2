@@ -164,13 +164,33 @@ def run_training(model_name: str, smoke: bool, persist: bool = True) -> dict:
     if persist_enabled and phase2_history is not None:
         kaggle_persist.push_checkpoint(model_name, checkpoint_dir)
 
-    history = {
-        "phase1": training_utils.json_safe(phase1_history.history) if phase1_history is not None else None,
-        "phase2": training_utils.json_safe(phase2_history.history) if phase2_history is not None else None,
-    }
+    # Both phases return None when they were already complete on entry
+    # (nothing left to resume — see phases.py's run_phase1/run_phase2
+    # docstrings) — that is NOT the same as "this run trained nothing worth
+    # recording." A real incident: history_MobileNetV2.json and
+    # history_MobileNetV3Small.json were once silently overwritten with a
+    # {"phase1": null, "phase2": null} stub when those models were re-run in
+    # a later session with both phases already complete, destroying the real
+    # training history that had been restored from the Kaggle-persisted
+    # artifacts moments earlier (CLAUDE.md rule 13's spirit: never overwrite
+    # existing data with nothing to show for it). This write is now
+    # unconditionally skipped whenever there is nothing new to record —
+    # never a "restore then maybe re-overwrite" dance, since restore_artifacts
+    # above already put the real file back if persist_enabled.
     config.ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     history_path = config.ARTIFACTS_DIR / f"history_{model_name}.json"
-    history_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
+    if phase1_history is not None or phase2_history is not None:
+        history = {
+            "phase1": training_utils.json_safe(phase1_history.history) if phase1_history is not None else None,
+            "phase2": training_utils.json_safe(phase2_history.history) if phase2_history is not None else None,
+        }
+        history_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
+    else:
+        print(
+            f"[train] '{model_name}' had nothing new to train this run (both phases already "
+            f"complete) — leaving {history_path} untouched rather than overwriting it with an "
+            "empty stub."
+        )
 
     manifest = _build_manifest(
         model_name,
@@ -188,7 +208,7 @@ def run_training(model_name: str, smoke: bool, persist: bool = True) -> dict:
     if persist_enabled:
         kaggle_persist.push_checkpoint(model_name, checkpoint_dir, include_artifacts=True)
 
-    print(f"[train] Wrote {history_path} and {manifest_path}.")
+    print(f"[train] Wrote {manifest_path}.")
     return manifest
 
 

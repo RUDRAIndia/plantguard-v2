@@ -188,6 +188,71 @@ def test_real_kaggle_run_restores_on_startup_and_pushes_after_each_phase(tmp_pat
     ]
 
 
+def test_skipped_run_does_not_overwrite_existing_history(tmp_path, monkeypatch):
+    """Reproduces the real incident that destroyed history_MobileNetV2.json
+    and history_MobileNetV3Small.json: a model re-run in a later session
+    with both phases already complete used to write {"phase1": null,
+    "phase2": null} over the real, already-restored history unconditionally.
+    run_phase1/run_phase2 both return None (their documented "already
+    complete, nothing to resume" contract — see phases.py) whenever nothing
+    new is trained this call.
+    """
+    monkeypatch.setattr(
+        train, "_load_datasets", lambda model_name, smoke: (object(), object(), {0: 1.0}, 1, 1)
+    )
+    monkeypatch.setattr(train.build, "build_model", lambda model_name: object())
+    monkeypatch.setattr(
+        train.phases,
+        "run_phase1",
+        lambda model_name, model, train_ds, val_ds, class_weights, epochs, checkpoint_dir: (None, 0.0),
+    )
+    monkeypatch.setattr(
+        train.phases,
+        "run_phase2",
+        lambda model_name, model, train_ds, val_ds, class_weights, epochs, checkpoint_dir: (model, None, 0.0),
+    )
+    monkeypatch.setattr(train.split, "compute_split_input_hash", lambda: "fake-split-hash")
+    monkeypatch.setattr(config, "ARTIFACTS_DIR", tmp_path / "artifacts")
+    monkeypatch.setattr(config, "CHECKPOINT_DIR", tmp_path / "checkpoints")
+    monkeypatch.setattr(config, "IS_KAGGLE", False)
+
+    config.ARTIFACTS_DIR.mkdir(parents=True)
+    history_path = config.ARTIFACTS_DIR / "history_MobileNetV2.json"
+    real_history = {"phase1": {"val_macro_f1": [0.91, 0.93]}, "phase2": {"val_macro_f1": [0.95, 0.9678]}}
+    history_path.write_text(json.dumps(real_history), encoding="utf-8")
+
+    manifest = train.run_training("MobileNetV2", smoke=False, persist=False)
+
+    assert json.loads(history_path.read_text(encoding="utf-8")) == real_history
+    assert manifest["model_name"] == "MobileNetV2"  # the run still completes and returns a manifest
+
+
+def test_skipped_run_with_no_prior_history_writes_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        train, "_load_datasets", lambda model_name, smoke: (object(), object(), {0: 1.0}, 1, 1)
+    )
+    monkeypatch.setattr(train.build, "build_model", lambda model_name: object())
+    monkeypatch.setattr(
+        train.phases,
+        "run_phase1",
+        lambda model_name, model, train_ds, val_ds, class_weights, epochs, checkpoint_dir: (None, 0.0),
+    )
+    monkeypatch.setattr(
+        train.phases,
+        "run_phase2",
+        lambda model_name, model, train_ds, val_ds, class_weights, epochs, checkpoint_dir: (model, None, 0.0),
+    )
+    monkeypatch.setattr(train.split, "compute_split_input_hash", lambda: "fake-split-hash")
+    monkeypatch.setattr(config, "ARTIFACTS_DIR", tmp_path / "artifacts")
+    monkeypatch.setattr(config, "CHECKPOINT_DIR", tmp_path / "checkpoints")
+    monkeypatch.setattr(config, "IS_KAGGLE", False)
+
+    train.run_training("MobileNetV2", smoke=False, persist=False)
+
+    history_path = config.ARTIFACTS_DIR / "history_MobileNetV2.json"
+    assert not history_path.exists()  # nothing to record, nothing fabricated
+
+
 def test_cli_no_persist_flag_reaches_run_training(monkeypatch):
     captured = {}
     monkeypatch.setattr(
