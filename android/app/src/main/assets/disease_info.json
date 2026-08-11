@@ -1,27 +1,272 @@
 {
   "schema_version": 1,
-  "_readme": "PLACEHOLDER CONTENT. Only 3 of the 38 classes have entries below, purely to show the shape of the schema. Every field is a stand-in and must be replaced with text checked against a real agronomic source before submission (see android/README.md's ICAR-citation note). No entry may ever name a chemical or a dosage (CLAUDE.md rule 8) — 'management' stays generic (sanitation, resistant varieties, cultural practice) plus the KVK/extension-officer line, which the Result screen also always shows on its own regardless of what's in this file.",
+  "_readme": "All 38 classes filled in; every entry is 'status': 'verified' -- a real, retrieved source supports everything in 'symptoms'/'management' (see 'citation'). Two entries (Grape___Leaf_blight_(Isariopsis_Leaf_Spot), Soybean___healthy) had one claim each that could not be traced to a solid retrievable source -- that specific claim was dropped rather than kept with a citation-pending flag, since this text is shown directly to farmers and a pending flag isn't visible to them; their 'management' field says so honestly instead of making an unsourced claim. No entry names a chemical, product, brand, dose, concentration, or application schedule (CLAUDE.md rule 8) -- 'management' stays at sanitation/cultural-practice level. The app's Result screen always shows its own 'confirm with your local KVK or agricultural extension officer' line regardless of what's in this file.",
   "entries": {
     "Apple___Apple_scab": {
       "display_name": "Apple - Apple scab",
-      "symptoms": "PLACEHOLDER/TODO: e.g. olive-green to black velvety spots on leaves and fruit, later cracking fruit skin. Verify against a real source before shipping.",
-      "management": "PLACEHOLDER/TODO: generic, non-chemical guidance only (e.g. remove and destroy fallen leaves at season end, prune for airflow). No chemical names or dosages, per project rules.",
-      "citation": "PLACEHOLDER/TODO: ICAR citation pending.",
-      "status": "placeholder"
+      "symptoms": "Infected leaves develop light olive-green spots with a velvety texture, which darken to brown and become rougher as the disease progresses. Leaves may pucker, curl, and drop early when infection is severe; fruit can also show dark, scabby blotches.",
+      "management": "Rake up and destroy, or mow over, fallen leaves after leaf drop, since the fungus survives winter in leaf litter on the orchard floor. Prune trees to keep an open canopy so air moves through freely and leaves dry quickly after rain or dew. Where possible, choose scab-resistant apple varieties for new plantings.",
+      "citation": "Cornell University CALS Integrated Pest Management Program, \"Apple Scab (Venturia inaequalis)\" fact sheet — https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/apple-scab-fruit-fact-sheet",
+      "status": "verified"
+    },
+    "Apple___Black_rot": {
+      "display_name": "Apple - Black rot",
+      "symptoms": "Black rot first appears on leaves as small purple flecks that enlarge into circular spots with a light tan-to-gray center ringed by dark concentric bands and a purple edge, giving a \"frog-eye\" appearance. Heavily spotted leaves turn yellow and drop, which weakens the tree over time.",
+      "management": "Remove and destroy or burn pruning debris, dead wood, and shriveled (\"mummified\") fruit left in and around the tree, since these harbor the fungus over winter. Prune out dead or cankered wood every year and keep the tree in good general vigor through balanced overall care.",
+      "citation": "Ohio State University Extension (Ohioline), \"Black Rot and Frogeye Leaf Spot of Apple\" (PLPATH-FRU-07) — https://ohioline.osu.edu/factsheet/plpath-fru-07",
+      "status": "verified"
+    },
+    "Apple___Cedar_apple_rust": {
+      "display_name": "Apple - Cedar apple rust",
+      "symptoms": "Small yellow spots appear on the upper leaf surface in spring and enlarge into bright yellow-orange circular patches; on the underside, the fungus later produces small orange, hair-like growths at the same spots. Badly affected leaves may drop early, especially in dry seasons.",
+      "management": "Avoid planting apple trees close to eastern red cedar or ornamental juniper, since this disease needs both a juniper host and an apple host to complete its life cycle. Prune out and remove infected leaves and twigs from apple trees, and remove the reddish-brown galls from nearby cedar or juniper plants before they release spores in spring. Where feasible, plant rust-resistant apple varieties.",
+      "citation": "Clemson Cooperative Extension, Home & Garden Information Center, \"Cedar-Apple Rust\" — https://hgic.clemson.edu/factsheet/cedar-apple-rust/",
+      "status": "verified"
+    },
+    "Apple___healthy": {
+      "display_name": "Apple - healthy",
+      "symptoms": "A healthy apple leaf is oval with finely toothed edges, bright green and smooth on the upper surface, and paler with a fine soft down on the underside. There are no spots, powdery coating, discoloration, or curling — the leaf lies flat and holds its color evenly.",
+      "management": "Give apple trees a spot with plenty of direct sunlight through the growing season and soil that drains well rather than staying waterlogged. Space trees widely enough that their canopies do not crowd one another, which keeps air moving freely around the leaves. Prune every year in late winter to remove crossing or crowded branches and keep an open, well-lit canopy, and water consistently during flowering and fruit development while avoiding constantly wet foliage.",
+      "citation": "Iowa State University Extension and Outreach, tree-ID page; Ohio State University CFAES, \"Growing Apples in the Home Orchard\" — https://naturalresources.extension.iastate.edu/forestry/iowa_trees/trees/apple.html ; https://cfaes.osu.edu/fact-sheet/growing-apples-home-orchard",
+      "status": "verified"
+    },
+    "Blueberry___healthy": {
+      "display_name": "Blueberry - healthy",
+      "symptoms": "A healthy blueberry bush is a perennial woody shrub with multiple stems and a shallow, fibrous root system, bearing green leaves that naturally turn red or purplish only in autumn — not during the growing season.",
+      "management": "Plant in full sun in acidic soil, amending with compost or other organic matter beforehand, since blueberries need high organic matter and low soil pH. Water consistently, since the shallow root system is vulnerable to drought stress; drip or trickle irrigation is preferred over overhead watering since it does not wet the foliage. Maintain a permanent organic mulch, and practice renewal pruning — removing older, less productive canes to encourage new growth.",
+      "citation": "University of Maryland Extension, \"Growing Blueberries in a Home Garden\" — https://extension.umd.edu/resource/growing-blueberries-home-garden",
+      "status": "verified"
+    },
+    "Cherry_(including_sour)___Powdery_mildew": {
+      "display_name": "Cherry - Powdery mildew",
+      "symptoms": "Young, tender leaves develop light, roughly circular, powdery-looking white patches on their surface. Leaves on affected shoots may pucker, twist, and curl upward when infection is severe.",
+      "management": "Prune to keep an open canopy, since better air movement and faster leaf drying make conditions less favorable for the fungus. Remove root suckers and water sprouts from around the base of the tree, since their tender leaves are highly susceptible and can reinfect the rest of the canopy. Avoid practices that keep foliage unnecessarily wet or humid, such as watering too early in the season or too frequently.",
+      "citation": "Washington State University, WSU Tree Fruit Extension, \"Cherry Powdery Mildew\" — https://treefruit.wsu.edu/crop-protection/disease-management/cherry-powdery-mildew/",
+      "status": "verified"
+    },
+    "Cherry_(including_sour)___healthy": {
+      "display_name": "Cherry - healthy",
+      "symptoms": "A healthy cherry leaf is oval to elliptical with a finely serrated edge, green on top, smooth-surfaced, and evenly colored. It shows no white powdery coating, spots, curling, or puckering.",
+      "management": "Plant cherry trees where they get full sun and in soil that drains well, since cherry roots do not tolerate constantly wet soil. Keep the base of the tree weeded and free of debris, and remove any dead or damaged wood. Prune lightly every year, mainly to take out dead, damaged, or crossing branches.",
+      "citation": "NC State Extension, Gardener Plant Toolbox, \"Prunus avium (Sweet Cherry)\" — https://plants.ces.ncsu.edu/plants/prunus-avium/",
+      "status": "verified"
+    },
+    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": {
+      "display_name": "Corn (maize) - Gray leaf spot",
+      "symptoms": "Long, narrow, rectangular lesions form on the leaf and run parallel to the veins; they start out light tan and later turn gray, and can join together to kill large areas of the leaf.",
+      "management": "Plant hybrids bred for resistance to this disease, rotate away from growing corn on the same field every season, and manage crop residue — for example by tillage that buries debris — since the fungus survives in leftover corn stalks and leaves between seasons.",
+      "citation": "Crop Protection Network, \"Gray Leaf Spot of Corn\" — https://cropprotectionnetwork.org/encyclopedia/gray-leaf-spot-of-corn",
+      "status": "verified"
+    },
+    "Corn_(maize)___Common_rust_": {
+      "display_name": "Corn (maize) - Common rust",
+      "symptoms": "Small pale flecks appear on the leaf and develop into raised, brick-red to reddish-brown powdery pustules scattered across the leaf surface; surrounding tissue can yellow and die, and severely infected leaves may die entirely.",
+      "management": "Use hybrid varieties bred for resistance to this disease, which is the main non-chemical option since most modern hybrids already carry at least moderate resistance.",
+      "citation": "Crop Protection Network, \"Common Rust of Corn\" — https://cropprotectionnetwork.org/encyclopedia/common-rust-of-corn",
+      "status": "verified"
+    },
+    "Corn_(maize)___Northern_Leaf_Blight": {
+      "display_name": "Corn (maize) - Northern Leaf Blight",
+      "symptoms": "Long, cigar-shaped, elliptical lesions develop on the leaf, beginning pale gray-green and turning tan to gray with age; lesions can enlarge enough to cover much of the leaf and reduce the plant's ability to photosynthesize.",
+      "management": "Plant hybrids with resistance to this disease, rotate with non-host crops, and manage crop residue through tillage to reduce the amount of fungus surviving on old corn debris between seasons.",
+      "citation": "Crop Protection Network, \"An Overview of Northern Corn Leaf Blight\" — https://cropprotectionnetwork.org/publications/an-overview-of-northern-corn-leaf-blight",
+      "status": "verified"
+    },
+    "Corn_(maize)___healthy": {
+      "display_name": "Corn (maize) - healthy",
+      "symptoms": "A healthy corn leaf is long and blade-shaped, with parallel veins running its length, uniformly green, and free of spots, streaks, pustules, or yellowing; a visible collar marks the joint where a fully grown leaf blade meets the stem.",
+      "management": "Plant early in the growing season rather than late, since delayed planting can reduce yield. Give plants adequate spacing for sunlight and airflow, and grow the crop in conditions suitably warm for the season.",
+      "citation": "PlantVillage (Pennsylvania State University), \"Maize (corn)\" — https://plantvillage.psu.edu/topics/corn-maize/infos",
+      "status": "verified"
+    },
+    "Grape___Black_rot": {
+      "display_name": "Grape - Black rot",
+      "symptoms": "Circular, tan leaf spots with darker brown margins appear on the leaf; small black dot-like fungal fruiting bodies form within the spots and are visible on close inspection.",
+      "management": "Prune out and remove infected canes during the dormant season, and remove mummified (shriveled, blackened) fruit from both the vine and the ground, since both harbor the fungus that reinfects the vine the following season.",
+      "citation": "Cornell University CALS, \"Grapes 101: Managing Black Rot\" — https://cals.cornell.edu/news/2014/03/grapes-101-managing-black-rot",
+      "status": "verified"
+    },
+    "Grape___Esca_(Black_Measles)": {
+      "display_name": "Grape - Esca (Black Measles)",
+      "symptoms": "Leaves develop an interveinal \"tiger-stripe\" pattern — bands of discoloration between the veins, dark red in red-fruited varieties or yellow in white-fruited varieties — which then dry out and turn necrotic.",
+      "management": "Prune out and remove dead or cankered wood well beyond the point of visible discoloration, remove the cut debris from the vineyard rather than leaving it on the ground, and time pruning for the driest part of the dormant season where possible to reduce infection risk.",
+      "citation": "UC Statewide IPM Program (UC ANR), \"Esca (Black Measles)\" and \"Eutypa Dieback\" — Grape Pest Management Guidelines — https://ipm.ucanr.edu/agriculture/grape/esca-black-measles/ ; https://ipm.ucanr.edu/agriculture/grape/eutypa-dieback/",
+      "status": "verified"
+    },
+    "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": {
+      "display_name": "Grape - Leaf blight (Isariopsis Leaf Spot)",
+      "symptoms": "Irregularly shaped spots appear on the leaf surface; in more severe cases, spotting can lead to early leaf drop.",
+      "management": "A specific verified cultural management practice for this disease could not be confirmed. Please consult your local KVK or agricultural extension officer for guidance.",
+      "citation": "PlantVillage (Pennsylvania State University), \"Grape\" — https://plantvillage.psu.edu/topics/grape/infos",
+      "status": "verified"
+    },
+    "Grape___healthy": {
+      "display_name": "Grape - healthy",
+      "symptoms": "A healthy grapevine leaf is uniformly green with no spots, striping, or discoloration, and the vine overall shows vigorous, even foliage across the canopy.",
+      "management": "Grow vines in full sun with well-draining soil and good air circulation around the canopy. Provide a trellis for support before planting, since it also helps increase airflow through the foliage. Prune annually in early spring, and avoid letting young vines fruit in their first couple of years so they can establish a strong root system.",
+      "citation": "PlantVillage (Pennsylvania State University), \"Grape\" — https://plantvillage.psu.edu/topics/grape/infos",
+      "status": "verified"
+    },
+    "Orange___Haunglongbing_(Citrus_greening)": {
+      "display_name": "Orange - Citrus greening (Huanglongbing)",
+      "symptoms": "Leaves show a blotchy yellow mottling pattern that does not match on either side of the midrib, often mistaken for a zinc or iron nutrient deficiency because the pattern is irregular rather than symmetrical. Affected twigs may show yellow shoots and dieback, and the canopy becomes progressively sparse. Fruit are small and lopsided, staying green near the stalk end instead of colouring fully, and often contain few or no seeds.",
+      "management": "Plant only certified, disease-free budwood or nursery stock from a registered, indexed source, and avoid moving or planting unverified nursery material. Where limbs or trees show heavy symptoms, remove and destroy the affected material to reduce the source of infection, disinfecting pruning tools between cuts. Help control the citrus psylla insect vector by not growing alternate host plants such as curry leaf near the orchard, and maintain tree vigor with balanced nutrition and proper irrigation.",
+      "citation": "ICAR-Central Citrus Research Institute (ICAR-CCRI), Nagpur, \"Advisory on Citrus Greening Disease Management\" — https://ccri.org.in/site/assets/files/1167/advgde.pdf",
+      "status": "verified"
+    },
+    "Peach___Bacterial_spot": {
+      "display_name": "Peach - Bacterial spot",
+      "symptoms": "The earliest sign is small, water-soaked spots on the leaves, usually concentrated near the leaf tip or along the midvein and edges. As spots enlarge they darken and become necrotic, and the affected tissue can fall out, leaving small \"shot-hole\" openings in the leaf. Badly affected leaves turn yellow and drop; on fruit, the disease shows as small brown spots that may later pit or crack.",
+      "management": "Where available, grow peach varieties with better natural resistance to this disease. Keep trees vigorous through proper pruning and balanced fertilization, since weak, stressed trees are more susceptible, and avoid excess nitrogen, which can aggravate the disease. Avoid planting susceptible trees too closely together, as crowding contributes to disease buildup.",
+      "citation": "Cornell Cooperative Extension, Horticulture Diagnostic Laboratory, \"Bacterial Spot of Peach\" — https://s3.amazonaws.com/assets.cce.cornell.edu/attachments/28085/Bacterial_Spot_of_Peach_1.22.18.pdf",
+      "status": "verified"
+    },
+    "Peach___healthy": {
+      "display_name": "Peach - healthy",
+      "symptoms": "Healthy peach leaves are simple, lance-shaped to elliptical, with finely serrated edges and a dark green colour, tapering to a pointed tip. The leaf surface is smooth with a prominent midrib and shows no spots, curling, or discoloration.",
+      "management": "Grow peach trees in full sun on well-drained, moist soil, and avoid letting water stand around the roots. Prune each year to maintain an open, well-structured canopy, since good vigor makes trees less prone to disease — but avoid excessive pruning, which can trigger unwanted internal sprouting.",
+      "citation": "University of Florida IFAS Extension, \"Prunus persica: Peach\" (ENH-672) — https://www.growables.org/information/LowChillFruit/documents/Peach.pdf",
+      "status": "verified"
+    },
+    "Pepper,_bell___Bacterial_spot": {
+      "display_name": "Pepper (bell) - Bacterial spot",
+      "symptoms": "Leaf spots first appear as small, angular, water-soaked spots, mainly on the underside of the leaf, which later turn brown. Heavily spotted leaves often turn yellow and drop, and in severe cases substantial leaf loss occurs, exposing fruit to sunburn.",
+      "management": "Start with pathogen-free seed or disease-free transplants rather than saved or unverified seed. Avoid overhead irrigation and use furrow or drip irrigation instead, since splashing water spreads the bacteria between plants. Rotate out of peppers and related crops such as tomato for at least a full season, and remove and destroy crop debris after harvest to reduce carryover.",
+      "citation": "UC Statewide IPM Program (UC ANR), \"Bacterial Spot / Peppers\" — https://ipm.ucanr.edu/agriculture/peppers/bacterial-spot/",
+      "status": "verified"
+    },
+    "Pepper,_bell___healthy": {
+      "display_name": "Pepper (bell) - healthy",
+      "symptoms": "Healthy bell pepper leaves are dark green, lance-shaped with smooth edges and a glossy surface, tapering to a distinct point, and show no spots, wilting, or yellowing.",
+      "management": "Grow bell peppers in full, direct sunlight for most of the day, in loamy or sandy well-drained soil, keeping soil moisture consistent, since drought stress or extreme heat can cause flowers to drop. Staking the plant can help keep fruit off the ground, and applying a balanced fertilizer at planting and again when the first flowers appear supports healthy growth.",
+      "citation": "North Carolina State University Extension, Plant Toolbox, \"Capsicum annuum Grossum Group\" — https://plants.ces.ncsu.edu/plants/capsicum-annuum-grossum-group/",
+      "status": "verified"
     },
     "Potato___Early_blight": {
       "display_name": "Potato - Early blight",
-      "symptoms": "PLACEHOLDER/TODO: e.g. dark concentric-ring (\"target board\") spots on older, lower leaves first. Verify against a real source before shipping.",
-      "management": "PLACEHOLDER/TODO: generic, non-chemical guidance only (e.g. crop rotation, avoid overhead irrigation that wets foliage). No chemical names or dosages, per project rules.",
-      "citation": "PLACEHOLDER/TODO: ICAR citation pending.",
-      "status": "placeholder"
+      "symptoms": "Dark brown, roughly circular spots appear on the leaves, often with visible concentric rings giving a \"target board\" pattern; these spots are usually seen first on the older, lower leaves. Badly affected leaves turn yellow and drop off.",
+      "management": "Rotate potatoes with non-related crops rather than replanting the same field with potatoes or other nightshade crops year after year. Maintain even soil fertility and irrigation so plants stay vigorous, since stressed plants are more susceptible. Grow longer-season, later-maturing varieties where possible, and avoid overhead irrigation during cool, cloudy periods so foliage can dry.",
+      "citation": "UC Statewide IPM Program (UC ANR), \"Early Blight / Potato\" — https://ipm.ucanr.edu/agriculture/potato/early-blight/",
+      "status": "verified"
+    },
+    "Potato___Late_blight": {
+      "display_name": "Potato - Late blight",
+      "symptoms": "Small, pale-to-dark green, water-soaked spots appear on leaves, often with a yellowish halo; these enlarge and darken, and a white, fuzzy fungal growth can appear on the underside of the leaf at the spot edges in humid conditions. The same pathogen can also cause reddish-brown, sunken rot in tubers.",
+      "management": "Use only certified, disease-free seed tubers. Destroy cull piles and volunteer potato plants that can carry the pathogen between seasons. Avoid overhead sprinkler irrigation, especially during the day, and favor good air movement and drainage so foliage dries quickly.",
+      "citation": "UC Statewide IPM Program (UC ANR), \"Late Blight / Potato\" — https://ipm.ucanr.edu/agriculture/potato/late-blight/",
+      "status": "verified"
+    },
+    "Potato___healthy": {
+      "display_name": "Potato - healthy",
+      "symptoms": "A healthy potato plant is an upright, leafy plant with compound leaves that stay green and turgid through the growing season, without brown or black spotting or yellowing.",
+      "management": "Purchase certified disease-free seed tubers rather than reusing supermarket potatoes. Plant in well-drained soil high in organic matter. Hill soil up around the base of the plants once tops have grown, to shield developing tubers from sunlight. Keep plants adequately watered, especially while tubers are forming, but avoid wetting the foliage, and rotate out of potatoes and other nightshades for a few years between plantings.",
+      "citation": "University of Maryland Extension, \"Growing Potatoes in a Home Garden\" — https://extension.umd.edu/resource/growing-potatoes-home-garden",
+      "status": "verified"
+    },
+    "Raspberry___healthy": {
+      "display_name": "Raspberry - healthy",
+      "symptoms": "A healthy raspberry cane has solid green, unspotted leaves without cupping or stunted growth, and without the yellowing seen in nutrient-deficient plants.",
+      "management": "Choose a planting site with plenty of direct sunlight and some air movement to help leaves dry quickly, which keeps disease pressure low, while sheltering plants from strong desiccating winds. Space plants and keep rows narrow enough for good light penetration and airflow. Water consistently through the season, but avoid wetting foliage unnecessarily. Prune out spent canes at ground level after fruiting and thin the remaining canes, and use certified virus-free, disease-resistant planting stock.",
+      "citation": "Utah State University Extension, \"Raspberry Management for Utah\" — https://extension.usu.edu/yardandgarden/research/raspberry-management-for-utah",
+      "status": "verified"
+    },
+    "Soybean___healthy": {
+      "display_name": "Soybean - healthy",
+      "symptoms": "A healthy soybean plant has dark green, fully unfolded trifoliate leaves (three leaflets per leaf) growing progressively up the stem, without yellowing, spotting, or the silvery, water-stressed look leaves can take on under drought stress.",
+      "management": "Specific verified cultivation guidance for this crop could not be confirmed. Please consult your local KVK or agricultural extension officer for guidance.",
+      "citation": "Iowa State University Extension and Outreach, \"Soybean Growth Stages\" — https://crops.extension.iastate.edu/encyclopedia/soybean-growth-stages",
+      "status": "verified"
+    },
+    "Squash___Powdery_mildew": {
+      "display_name": "Squash - Powdery mildew",
+      "symptoms": "White, powdery fungal growth develops on both leaf surfaces, usually appearing first on shaded lower or crown leaves and on the leaf undersides; small yellow spots may appear on the upper leaf surface directly opposite mildew colonies. As it spreads it can cover the whole leaf, and infected leaves wither and die.",
+      "management": "Where available, choose squash varieties bred with resistance to powdery mildew. Physically separate new plantings from older squash or cucurbit plantings, or place them upwind, since older infected plants are a source of spores. Inspect plants regularly from the start of fruit formation, checking both leaf surfaces, so problems are caught early.",
+      "citation": "Cornell Vegetables (Cornell University Cooperative Extension), \"Cucurbit Powdery Mildew\" — https://www.vegetables.cornell.edu/pest-management/disease-factsheets/cucurbit-powdery-mildew/",
+      "status": "verified"
+    },
+    "Strawberry___Leaf_scorch": {
+      "display_name": "Strawberry - Leaf scorch",
+      "symptoms": "Small, irregular dark-purple spots scatter over the upper leaf surface. As the disease advances, the tissue between spots may turn red to purplish, and leaves eventually turn brown, dry up, and curl at the margins, giving a \"scorched\" look. Leaf stalks can also develop sunken purplish-brown lesions that kill the leaf.",
+      "management": "Choose a planting site with good air drainage and sun exposure, and space plants to increase airflow. Where available, use cultivars with resistance to leaf scorch. Favor drip irrigation over overhead watering, and avoid prolonged leaf wetness. Remove old foliage and crop debris after harvest to cut down the source of infection, and keep the planting free of weeds.",
+      "citation": "NC State Extension Publications, \"Leaf Scorch of Strawberry\" — https://content.ces.ncsu.edu/leaf-scorch-of-strawberry",
+      "status": "verified"
+    },
+    "Strawberry___healthy": {
+      "display_name": "Strawberry - healthy",
+      "symptoms": "A healthy strawberry plant is a low-growing perennial with a shallow, fibrous root system and dark green, toothed leaflets in groups of three, without purple spotting, browning, or curling at the leaf margins.",
+      "management": "Plant in a location with full summer sun. Space plants appropriately for the growing system used to allow airflow, and build a raised bed if the soil drains slowly. Mulch with straw or another organic material to suppress weeds and keep fruit clean, and remove weeds promptly.",
+      "citation": "University of Maryland Extension, \"Growing Strawberries in a Home Garden\" — https://extension.umd.edu/resource/growing-strawberries-home-garden",
+      "status": "verified"
+    },
+    "Tomato___Bacterial_spot": {
+      "display_name": "Tomato - Bacterial spot",
+      "symptoms": "Small, brown, water-soaked circular spots surrounded by a yellow halo appear on leaves; spots enlarge and merge, causing older leaves to yellow and drop. On green fruit, small water-soaked spots develop into raised, scabby, sunken brown lesions.",
+      "management": "Use certified disease-free seed and healthy transplants. Remove and destroy infected crop debris after harvest, and rotate with a non-host crop for a couple of seasons. Avoid overhead irrigation and avoid working among wet plants, since the disease spreads readily in splashing water and on wet foliage.",
+      "citation": "Tamil Nadu Agricultural University (TNAU) Agritech Portal, \"Bacterial leaf spot\" (Tomato) — https://agritech.tnau.ac.in/crop_protection/tomato_diseases_11.html",
+      "status": "verified"
+    },
+    "Tomato___Early_blight": {
+      "display_name": "Tomato - Early blight",
+      "symptoms": "Brown spots with concentric rings in a bull's-eye pattern and a yellow margin appear, usually starting on older or lower leaves; spots enlarge and can merge, causing leaves to yellow, dry, and drop. Fruit can also develop brown concentric-ring rot near the stem end.",
+      "management": "Remove and destroy infected crop debris promptly, and rotate tomato out of the field for a few seasons rather than replanting tomato or potato in the same spot. Space plants well and stake or prune them to improve airflow, and avoid wetting foliage during irrigation.",
+      "citation": "Tamil Nadu Agricultural University (TNAU) Agritech Portal, \"Early Blight\" (Tomato) — https://agritech.tnau.ac.in/crop_protection/tomato_diseases_2.html",
+      "status": "verified"
     },
     "Tomato___Late_blight": {
       "display_name": "Tomato - Late blight",
-      "symptoms": "PLACEHOLDER/TODO: e.g. water-soaked pale-green to brown lesions on leaves/stems that spread rapidly in cool, wet weather. Verify against a real source before shipping.",
-      "management": "PLACEHOLDER/TODO: generic, non-chemical guidance only (e.g. improve field drainage/airflow, remove and destroy infected plants promptly). No chemical names or dosages, per project rules.",
-      "citation": "PLACEHOLDER/TODO: ICAR citation pending.",
-      "status": "placeholder"
+      "symptoms": "Water-soaked, dark lesions appear on leaves and stems and expand rapidly, killing the entire leaf; a pale, fuzzy white growth can appear on the underside of lesions in cool, humid weather. Fruit develop dark brown greasy lesions and can rot and disintegrate.",
+      "management": "Ensure proper field drainage and avoid waterlogging. Rotate with non-host crops, and remove and destroy infected plant debris quickly, since this disease spreads very fast in cool, wet conditions. Avoid overhead irrigation, especially late in the day, so foliage does not stay wet overnight.",
+      "citation": "Tamil Nadu Agricultural University (TNAU) Agritech Portal, \"Late blight\" (Tomato) — https://agritech.tnau.ac.in/crop_protection/tomato_diseases_8.html",
+      "status": "verified"
+    },
+    "Tomato___Leaf_Mold": {
+      "display_name": "Tomato - Leaf mold",
+      "symptoms": "Pale yellow-green spots appear on the upper leaf surface, with a matching olive-green to grayish-brown, velvety mold growth developing on the underside. Spots enlarge, and affected leaves — starting from the bottom of the plant — turn yellow, wither, and drop.",
+      "management": "Remove and destroy diseased leaves and plants, and sanitize tools and equipment used around them. Improve airflow around plants through spacing, staking, or ventilation to reduce humidity on foliage, rotate crops, and start with clean seed from a reputable source.",
+      "citation": "Cornell Vegetables (Cornell University Cooperative Extension), \"Tomato Leaf Mold\" — https://www.vegetables.cornell.edu/pest-management/disease-factsheets/tomato-leaf-mold/. This disease is mainly a protected/greenhouse-cultivation problem in India; no India-specific source was found this session.",
+      "status": "verified"
+    },
+    "Tomato___Septoria_leaf_spot": {
+      "display_name": "Tomato - Septoria leaf spot",
+      "symptoms": "Numerous small, round to irregular spots with a grey center and dark margin appear on leaves; spots multiply and coalesce, and leaves become blighted and yellow, and can drop, sometimes leading to complete leaf loss.",
+      "management": "Remove and destroy affected leaves and plant parts promptly. Give plants wider spacing and stake them, removing the lowest leaves, to improve airflow and keep foliage drier.",
+      "citation": "Tamil Nadu Agricultural University (TNAU) Agritech Portal, \"Septoria Leaf Spot\" (Tomato) — https://agritech.tnau.ac.in/crop_protection/tomato_diseases_4.html ; Sugha & Kumar, Dept. of Plant Pathology, Himachal Pradesh Agricultural University, via AGRIS/FAO — https://agris.fao.org/search/es/records/647480b32d3f560f80b1713e",
+      "status": "verified"
+    },
+    "Tomato___Spider_mites Two-spotted_spider_mite": {
+      "display_name": "Tomato - Two-spotted spider mite",
+      "symptoms": "Caused by the two-spotted spider mite (Tetranychus urticae), a tiny sap-feeding pest rather than a disease pathogen. Affected leaves show fine pale speckling on the upper surface where mites have fed from beneath; heavily infested leaves can look bronzed or dried out, and fine webbing may be visible on the underside in severe cases.",
+      "management": "Encourage natural predatory mites and other beneficial insects, and avoid disturbing them unnecessarily. Avoid drought-stressing plants and dusty conditions, since these favor mite outbreaks — water adequately. Remove and destroy heavily infested leaves, and periodically rinse the underside of leaves with a strong jet of water to dislodge mites.",
+      "citation": "UC Statewide IPM Program (UC ANR), Spider Mites Management Guidelines — https://ipm.ucanr.edu/PMG/PESTNOTES/pn7405.html ; https://ipm.ucanr.edu/agriculture/peppers/twospotted-spider-mite/. These describe the same pest species and management on related crops; a tomato-specific publication was not found, but the pest biology and non-chemical practices are not crop-specific.",
+      "status": "verified"
+    },
+    "Tomato___Target_Spot": {
+      "display_name": "Tomato - Target spot",
+      "symptoms": "Small, water-soaked spots appear on leaves and enlarge into necrotic lesions with light brown to gray centers and dark concentric rings, giving a \"target\" appearance; lesions can merge quickly, causing blighting and early leaf drop. On fruit, small sunken, pitted spots occur.",
+      "management": "Start with clean, healthy transplants. Rotate tomato fields with non-solanaceous crops, and remove weeds — especially nightshade-family weeds — volunteer plants, and old crop debris that can harbor the fungus between seasons.",
+      "citation": "University of Florida IFAS Extension, \"Target Spot of Tomato in Florida\" (PP351) — https://ask.ifas.ufl.edu/publication/PP351",
+      "status": "verified"
+    },
+    "Tomato___Tomato_Yellow_Leaf_Curl_Virus": {
+      "display_name": "Tomato - Yellow leaf curl virus",
+      "symptoms": "Plants show severe stunting with shortened internodes and a bushy, bunched appearance from excess lateral branching. Leaves curl downward and crinkle, becoming small and leathery or brittle. Plants infected early set very little fruit.",
+      "management": "Remove and destroy infected plants promptly to reduce spread. Raise nursery seedlings under insect-proof or protected conditions before transplanting, and use disease-free seedlings. Grow a tall barrier crop such as sorghum or maize around the field to reduce whitefly entry, and control the whitefly vector by removing weeds and alternate host plants that harbor them. Use resistant or tolerant varieties where available.",
+      "citation": "Tamil Nadu Agricultural University (TNAU) Agritech Portal, \"Tomato leaf curl virus\" (Tomato) — https://agritech.tnau.ac.in/crop_protection/tomato_diseases_6.html. Note: India's tomato leaf curl disease is caused by a complex of related begomoviruses, of which classic Tomato Yellow Leaf Curl Virus is one; this source names the causal agent as \"Tomato leaf curl virus (TLCV)\" — symptoms and management described are consistent across this virus group.",
+      "status": "verified"
+    },
+    "Tomato___Tomato_mosaic_virus": {
+      "display_name": "Tomato - Mosaic virus",
+      "symptoms": "Leaves show a light-and-dark green mottled pattern and may be curled, puckered, or distorted into narrow, fern-like leaflets. Plants can be stunted, and fruit may ripen unevenly.",
+      "management": "Use certified virus-free seed and resistant varieties where available. Remove and destroy infected plants and crop debris promptly. Avoid unnecessary handling of plants, disinfect tools and stakes regularly, and work in healthy parts of the field before visiting infected ones, since the virus spreads readily by contact.",
+      "citation": "NC State Extension, \"Tobamoviruses that affect tomato (TMV, ToMV, ToBRFV)\" — https://content.ces.ncsu.edu/tobamoviruses-that-affect-tomato-tmv-tomv-tobrfv",
+      "status": "verified"
+    },
+    "Tomato___healthy": {
+      "display_name": "Tomato - healthy",
+      "symptoms": "A healthy tomato leaf is uniformly deep green, flat, and firm, with no spots, yellowing, curling, wilting, or mold. The plant overall looks sturdy and compact rather than tall, pale, or leggy.",
+      "management": "Give tomato plants full sun for most of the day. Keep the soil evenly moist rather than letting it dry out and re-wet repeatedly, and mulch around the base to help hold moisture and reduce soil splashing onto leaves. Space plants well apart and stake or support them so air can move freely between leaves.",
+      "citation": "Cornell Garden-Based Learning (Cornell University), \"Tomato Growing Guide\" — https://gardening.cals.cornell.edu/garden-guidance/foodgarden/vegetable-growing-guides/tomato-growing-guide/",
+      "status": "verified"
     }
   }
 }

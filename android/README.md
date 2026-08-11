@@ -60,22 +60,39 @@ work without any Kotlin changes.
    and crashes with a clear message if it doesn't, rather than silently
    mis-mapping predictions to the wrong class names).
 
-## Disease content — still needs real citations
+## Disease content
 
-`app/src/main/assets/disease_info.json` has **placeholder** symptom/
-management text for only 3 of the 38 classes, clearly marked
-`"status": "placeholder"`, purely to show the shape of the schema. Before
-submission:
+`app/src/main/assets/disease_info.json` has real, researched content for
+all 38 classes, each with a citation actually retrieved and checked (not
+guessed) against ICAR, an Indian state agricultural university (Tamil Nadu
+Agricultural University's Agritech Portal, in particular), a KVK
+publication, or an established university plant pathology extension
+service (Cornell, UC IPM/ANR, Ohio State, NC State, Clemson, Penn State's
+PlantVillage, and others) where Indian-specific literature was thin.
+`tests/test_disease_info.py` enforces this going forward:
 
-- Every `symptoms`/`management` field must be replaced with text checked
-  against a real agronomic source.
-- Every entry needs a real **ICAR citation** in the `citation` field.
-- `management` must stay generic and non-chemical (no product names, no
-  dosages, no application schedules) — the app's own "confirm with your
-  local KVK" line is not a substitute for this rule, it's in addition to it.
-- The remaining 35 classes currently have no entry at all; the Result
-  screen shows "Management information for this disease has not been added
-  yet." for those rather than fabricating content.
+- All 38 keys must exactly match `src/config.py:PLANTVILLAGE_CLASS_NAMES`
+  (no fuzzy matching — a typo'd key fails loudly instead of silently
+  producing a class with no info).
+- No entry may contain a number immediately followed by a dosage/
+  concentration-style unit (`%`, `g/L`, `ml`, `kg`, `ppm`, etc.) — this is
+  deliberately broad (no non-chemical number+unit either, e.g. leaf sizes
+  or sun-hours), specifically so an agrochemical dose can never creep back
+  in unnoticed (CLAUDE.md rule 8).
+- `management` stays generic and non-chemical (no product/brand names, no
+  doses, no application schedules) — the app's own "confirm with your local
+  KVK" line is not a substitute for this rule, it's in addition to it.
+- Every entry must have `"status": "verified"` — a real source was fetched
+  and its exact supporting text confirmed for everything in the entry.
+  There is no "pending" status: this text is shown directly to farmers, and
+  a pending flag isn't visible to them, so an unsourced claim is dropped at
+  write time rather than kept with a flag. Two entries are shorter than the
+  others for exactly this reason — `Grape___Leaf_blight_(Isariopsis_Leaf_Spot)`
+  keeps only its sourced symptom description (no management claim could be
+  confirmed), and `Soybean___healthy` keeps only its sourced leaf
+  description (no cultivation-practice claim could be confirmed); both say
+  so honestly in `management` instead of making an unsourced claim. If you
+  find a real source for either, add the practice back with a citation.
 
 ## Versions used, and why
 
