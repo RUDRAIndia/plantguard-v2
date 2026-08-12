@@ -18,6 +18,7 @@ from PIL import Image
 
 from src import config
 from src.data import dedupe, split, split_report
+from src.models import build
 
 # Fake classes, each with several distinct "physical leaves" (some
 # represented by more than one near-duplicate photo) — enough groups per
@@ -131,3 +132,44 @@ def monkeypatch_module_scoped():
     mp = MonkeyPatch()
     yield mp
     mp.undo()
+
+
+EXPORT_MODEL_NAME = "MobileNetV2"
+
+
+@pytest.fixture(scope="module")
+def export_env(synthetic_dataset, tmp_path_factory, monkeypatch_module_scoped):
+    """Shared by tests/test_export_to_tflite.py and
+    tests/test_export_verify_tflite.py: a real (untrained) MobileNetV2
+    checkpoint saved into a faked, module-scoped CHECKPOINT_DIR (exercising
+    the real src.evaluate.inference.load_trained_model() path, not a
+    shortcut around it).
+
+    Deliberately does NOT touch TFLITE_OUTPUT_DIR/ANDROID_MODEL_METADATA_PATH/
+    ANDROID_MODEL_TFLITE_PATH/RESULTS_JSON_PATH — those are mutated by
+    src.export.to_tflite.export() itself, so sharing them across tests in
+    one module-scoped fixture would make every test after the first see
+    whatever the previous export() call already wrote (deployed assets,
+    an "export" section already in results.json). Tests that call export()
+    for real must set those four up fresh per-test (see
+    tests/test_export_to_tflite.py's `fresh_export_targets` fixture) —
+    CHECKPOINT_DIR is safe to share since export() only ever reads from it.
+    """
+    checkpoint_dir = tmp_path_factory.mktemp("checkpoints")
+    monkeypatch_module_scoped.setattr(config, "CHECKPOINT_DIR", checkpoint_dir)
+
+    model = build.build_model(EXPORT_MODEL_NAME)
+    model_checkpoint_dir = checkpoint_dir / EXPORT_MODEL_NAME
+    model_checkpoint_dir.mkdir(parents=True)
+    weights_path = model_checkpoint_dir / "phase1.weights.h5"
+    model.save_weights(weights_path)
+
+    return {
+        "model_name": EXPORT_MODEL_NAME,
+        "model": model,
+        "checkpoint_dir": checkpoint_dir,
+        "weights_path": weights_path,
+        "param_count": int(model.count_params()),
+        "checkpoint_file_size_bytes": weights_path.stat().st_size,
+        "checkpoint_mtime": weights_path.stat().st_mtime,
+    }

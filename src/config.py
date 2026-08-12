@@ -651,6 +651,28 @@ TFLITE_CONFIG = {
 }
 TFLITE_OUTPUT_DIR = ARTIFACTS_DIR / "tflite"
 
+# Maximum acceptable validation macro-F1 drop between the float Keras model
+# and the INT8-quantized .tflite (both measured on the same validation
+# split, src/export/verify_tflite.py) before the INT8 export is refused as
+# the deployed model — 1.5 percentage points. Exceeding this never silently
+# ships the degraded model: src/export/to_tflite.py additionally builds a
+# float16 comparison artifact and raises, forcing a human decision.
+TFLITE_MAX_MACRO_F1_DROP = 0.015
+
+# Single-image CPU inference latency measurement (src/export/verify_tflite.py):
+# the first WARMUP_RUNS interpreter.invoke() calls are discarded (interpreter
+# setup / cache warmup are not representative of steady-state latency), then
+# MEASURED_RUNS are individually timed and averaged. 100 measured runs is
+# enough to get a stable mean/std against normal OS scheduling jitter while
+# still finishing in a few seconds for a model this size.
+TFLITE_LATENCY_WARMUP_RUNS = 10
+TFLITE_LATENCY_MEASURED_RUNS = 100
+
+# Staged filenames under TFLITE_OUTPUT_DIR (src/export/to_tflite.py) — never
+# restated as literals at the call site (CLAUDE.md rule 6).
+TFLITE_INT8_FILENAME = "model_int8.tflite"
+TFLITE_FLOAT16_FILENAME = "model_float16.tflite"
+
 # ---------------------------------------------------------------------------
 # Evaluation (src/evaluate/) — Day 8 full evaluation suite
 # ---------------------------------------------------------------------------
@@ -666,6 +688,14 @@ EVAL_FIGURES_DIR = ARTIFACTS_DIR / "figures"
 # the Day-9 model.tflite swap — every other field (including "placeholder")
 # is left untouched since the .tflite itself is still the placeholder.
 ANDROID_MODEL_METADATA_PATH = REPO_ROOT / "android" / "app" / "src" / "main" / "assets" / "model_metadata.json"
+
+# The Day-9 real export's deployed .tflite target — sibling of
+# ANDROID_MODEL_METADATA_PATH above. src/export/to_tflite.py's
+# _deploy_to_android() is the only function that ever writes here, and only
+# once a staged INT8 candidate's validation macro-F1 drop has been verified
+# within TFLITE_MAX_MACRO_F1_DROP (CLAUDE.md rule 13: stage, validate, then
+# swap — never overwrite the placeholder with an unvalidated candidate).
+ANDROID_MODEL_TFLITE_PATH = REPO_ROOT / "android" / "app" / "src" / "main" / "assets" / "model.tflite"
 
 # Test-set evaluation (src/evaluate/metrics.py). A 38x38 confusion matrix is
 # unreadable as a headline number — this is how many off-diagonal (true,
