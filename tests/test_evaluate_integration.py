@@ -98,6 +98,12 @@ def test_ood_tuning_runs_end_to_end_and_updates_android_metadata(eval_env):
     assert "plantdoc_at_chosen_threshold" not in result
     assert "plantdoc_safety_note" not in result
     assert len(result["population_comparison_at_chosen_threshold"]) == 2
+    # The sweep still runs (validation + negatives only) even without
+    # PlantDoc data; every row must omit "plantdoc" the same way.
+    sweep_rows = result["ood_threshold_sweep"]["rows"]
+    assert len(sweep_rows) > 0
+    assert all("plantdoc" not in row for row in sweep_rows)
+    assert any(abs(row["threshold"] - result["chosen_threshold"]) < 1e-9 for row in sweep_rows)
 
 
 def test_ood_tuning_reports_a_plantdoc_arm_without_retuning_the_threshold(eval_env):
@@ -141,3 +147,13 @@ def test_ood_tuning_reports_a_plantdoc_arm_without_retuning_the_threshold(eval_e
         "intel_negatives_out_of_distribution",
         "plantdoc_external_field_photos",
     }
+
+    # The threshold sweep must include a row for every population, at the
+    # deployed threshold and across the reporting grid, and must never have
+    # changed chosen_threshold (checked above) -- it's report-only.
+    sweep_rows = result["ood_threshold_sweep"]["rows"]
+    assert len(sweep_rows) > 0
+    assert all("plantdoc" in row for row in sweep_rows)
+    chosen_row = next(row for row in sweep_rows if abs(row["threshold"] - result["chosen_threshold"]) < 1e-9)
+    assert chosen_row["plantdoc"]["num_confident_wrong"] == plantdoc_arm["num_confident_wrong"]
+    assert chosen_row["plantdoc"]["pct_confident_wrong"] == pytest.approx(plantdoc_arm["pct_confident_wrong"])

@@ -1,9 +1,12 @@
 """Tests for src/evaluate/runner.py's console-output helpers. runner.run()
 itself is a thin, expensive end-to-end orchestration (already exercised
-module-by-module via the other tests/test_evaluate_*.py files); this only
-covers _print_plantdoc_summary, added so macro-F1 and the mapping-confidence
-tier breakdown are visible on the console during a real run, not only inside
-artifacts/results.json.
+module-by-module via the other tests/test_evaluate_*.py files); this covers
+_print_plantdoc_summary (macro-F1 and the mapping-confidence tier breakdown
+visible on the console during a real run, not only inside
+artifacts/results.json) and _push_artifacts_or_report_loudly (a real Kaggle
+run once reported the whole evaluation as failed purely because this push
+raised uncaught at the very end, even though results.json was already
+complete -- these tests are what would catch a regression of that fix).
 """
 
 import sys
@@ -50,3 +53,28 @@ def test_print_plantdoc_summary_handles_a_tier_with_no_images():
         "macro_f1": None,
     }
     runner._print_plantdoc_summary(results)  # must not raise on None accuracy/macro_f1
+
+
+def test_push_artifacts_or_report_loudly_swallows_a_push_failure_and_reports_it(monkeypatch, capsys):
+    def _raise():
+        raise RuntimeError("simulated Kaggle API failure")
+
+    monkeypatch.setattr(runner.kaggle_persist_artifacts, "push_data_artifacts", _raise)
+
+    runner._push_artifacts_or_report_loudly()  # must NOT raise -- this is the whole point of the fix
+
+    out = capsys.readouterr().out
+    assert "ARTIFACTS PERSISTENCE FAILED" in out
+    assert "NOT an evaluation failure" in out
+    assert "simulated Kaggle API failure" in out
+
+
+def test_push_artifacts_or_report_loudly_is_quiet_on_success(monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(runner.kaggle_persist_artifacts, "push_data_artifacts", lambda: calls.append(1))
+
+    runner._push_artifacts_or_report_loudly()
+
+    assert calls == [1]
+    out = capsys.readouterr().out
+    assert "ARTIFACTS PERSISTENCE FAILED" not in out

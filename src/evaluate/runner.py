@@ -32,10 +32,21 @@ same Kaggle-persisted dataset src/models/kaggle_persist.py already uses for
 checkpoints (src/models/kaggle_persist_artifacts.py), so a session recycle
 never destroys them. See that module's docstring for the push/restore
 design and src/data/prepare_artifacts.py for where restore happens.
+
+**That push failing must never fail this whole run.** By the time it runs,
+every number in results.json has already been computed and durably written
+to disk — the push is a best-effort attempt to also durably persist it
+*across sessions*, not a precondition for the evaluation itself having
+succeeded. A real Kaggle run once reported "Version N failed to run" purely
+because this push raised an uncaught exception at the very end, even though
+results.json was already complete and correct; _push_artifacts_or_report_loudly()
+below catches that instead of letting it propagate, and reports it loudly —
+worded distinctly from an evaluation failure — rather than silently.
 """
 
 import json
 import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -68,6 +79,33 @@ def _print_plantdoc_summary(plantdoc_results: dict) -> None:
             f"[runner]     {tier:<10} accuracy={accuracy_str} macro_f1={macro_f1_str} "
             f"({tier_result['num_images']} images)"
         )
+
+
+def _push_artifacts_or_report_loudly() -> None:
+    """Best-effort cross-session persistence of artifacts/ — see module
+    docstring for why a failure here must be caught rather than propagated,
+    and why it's still reported loudly and distinctly from an evaluation
+    failure rather than silently (CLAUDE.md rule 1: not-persisted-and-you-
+    don't-know-it is its own kind of silent failure).
+    """
+    try:
+        kaggle_persist_artifacts.push_data_artifacts()
+    except Exception as exc:
+        banner = "!" * 78
+        print(f"[runner] {banner}")
+        print(
+            "[runner] ARTIFACTS PERSISTENCE FAILED -- this is NOT an evaluation failure. "
+            f"Every number above is real and was already written to {config.RESULTS_JSON_PATH} "
+            f"before this push was attempted. It was NOT pushed to the Kaggle-persisted "
+            f"'{config.KAGGLE_PERSIST_DATASET_SLUG}' dataset, so results.json, artifacts/figures/, "
+            "and this run's dedupe/split/inventory/mapping outputs will be LOST if this "
+            "session ends without a successful push -- before the session recycles, retry "
+            "manually: python -c "
+            "\"from src.models import kaggle_persist_artifacts as k; k.push_data_artifacts()\""
+        )
+        print(f"[runner] {type(exc).__name__}: {exc}")
+        traceback.print_exc()
+        print(f"[runner] {banner}")
 
 
 def run() -> dict:
@@ -111,7 +149,9 @@ def run() -> dict:
     print(
         f"[runner]   plantdoc: rejection_rate={plantdoc_arm['rejection_rate']:.4f} "
         f"num_accepted={plantdoc_arm['num_accepted']}/{plantdoc_arm['num_samples']} "
-        f"accuracy_on_accepted={plantdoc_arm['accuracy_on_accepted']}"
+        f"accuracy_on_accepted={plantdoc_arm['accuracy_on_accepted']} "
+        f"confident_wrong={plantdoc_arm['num_confident_wrong']}/{plantdoc_arm['num_samples']} "
+        f"({plantdoc_arm['pct_confident_wrong']:.1%})"
     )
     print(f"[runner]   {ood_results['plantdoc_safety_note']}")
 
@@ -149,7 +189,7 @@ def run() -> dict:
     print(f"[runner] Wrote {config.RESULTS_JSON_PATH}")
 
     if config.IS_KAGGLE:
-        kaggle_persist_artifacts.push_data_artifacts()
+        _push_artifacts_or_report_loudly()
 
     return results
 

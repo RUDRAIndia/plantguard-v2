@@ -689,6 +689,19 @@ TEMPERATURE_GRID_STEP = 0.01
 # distribution) from the Intel negatives (out-of-distribution).
 OOD_THRESHOLD_GRID_STEP = 0.01
 
+# Reporting-only threshold sweep (src/evaluate/ood.py) — deliberately
+# coarser than OOD_THRESHOLD_GRID_STEP above: that grid exists to search for
+# a single deployed operating point, this one exists to let a human read a
+# trade-off table (rejection rate / accuracy on accepted / confident-wrong
+# rate per population per threshold) without paging through 101 rows.
+# PlantDoc is scored at every row but never influences which threshold gets
+# deployed — choose_threshold() never sees this grid or PlantDoc at all, only
+# validation + Intel negatives (see that function and OOD_THRESHOLD_GRID_STEP
+# above). The actually-deployed chosen_threshold is always added to the swept
+# grid as well, even where it doesn't land on a 0.05 boundary (e.g. 0.98), so
+# the real operating point is never only approximated by its neighbors.
+OOD_REPORT_THRESHOLD_GRID_STEP = 0.05
+
 # Robustness (src/evaluate/robustness.py): corruption types a phone camera
 # actually produces, at 3 severities each. Every severity map below must
 # cover exactly ROBUSTNESS_SEVERITIES — asserted below rather than assumed.

@@ -30,6 +30,17 @@ accepted gets a confident diagnosis that is wrong about as often as if the
 gate didn't exist at all. tune_ood_rejection() computes both real
 possibilities from actual predictions and states plainly, in
 plantdoc_safety_note, which one is true — never a value the code assumes.
+
+**Threshold sweep (report-only).** Besides the single already-chosen
+threshold, tune_ood_rejection() also reports the same per-population
+figures across config.OOD_REPORT_THRESHOLD_GRID_STEP's coarser grid (plus
+the chosen threshold itself), under "ood_threshold_sweep" — so the
+trade-off curve is visible: how rejection rate, accuracy on accepted, and
+PlantDoc's confident-wrong rate (accepted AND misclassified, as a fraction
+of ALL PlantDoc images — the number that actually matters for user safety)
+move together as the threshold rises, up to the point where the app becomes
+safe only by rejecting nearly everything. This sweep never feeds back into
+choose_threshold() or the deployed threshold — it is reporting only.
 """
 
 import json
@@ -102,27 +113,82 @@ def _population_summary(
     """One population's behavior at an already-chosen threshold: how many
     of its samples are rejected/accepted, and (only when ground-truth
     labels are meaningful for this population — never true for the Intel
-    negatives, which aren't leaves at all) accuracy on the accepted subset.
-    mean/median confidence are reported regardless, so populations can be
-    compared even where accuracy can't be (e.g. negatives vs. leaves).
+    negatives, which aren't leaves at all) accuracy on the accepted subset
+    plus num/pct_confident_wrong — accepted AND misclassified, as a count
+    and as a fraction of *all* samples in this population (not just the
+    accepted ones). This is the number that actually matters for user
+    safety: a confident wrong diagnosis the gate let through. mean/median
+    confidence are reported regardless, so populations can be compared even
+    where accuracy can't be (e.g. negatives vs. leaves).
     """
     accepted_mask = confidence >= threshold
     num_accepted = int(accepted_mask.sum())
+    num_samples = int(len(confidence))
     if y_true is not None and y_pred is not None:
         accuracy_on_accepted = (
             float(np.mean(y_pred[accepted_mask] == y_true[accepted_mask])) if num_accepted > 0 else None
         )
+        num_confident_wrong = int(np.sum(accepted_mask & (y_pred != y_true)))
+        pct_confident_wrong = num_confident_wrong / num_samples if num_samples else None
     else:
         accuracy_on_accepted = None
+        num_confident_wrong = None
+        pct_confident_wrong = None
     return {
         "population": population,
-        "num_samples": int(len(confidence)),
+        "num_samples": num_samples,
         "rejection_rate": float(np.mean(confidence < threshold)),
         "num_accepted": num_accepted,
         "accuracy_on_accepted": accuracy_on_accepted,
+        "num_confident_wrong": num_confident_wrong,
+        "pct_confident_wrong": pct_confident_wrong,
         "mean_confidence": float(np.mean(confidence)),
         "median_confidence": float(np.median(confidence)),
     }
+
+
+def _sweep_thresholds(chosen_threshold: float) -> list:
+    """The reporting-sweep grid (config.OOD_REPORT_THRESHOLD_GRID_STEP,
+    0.00..1.00 inclusive) with the actually-deployed chosen_threshold added
+    if it doesn't already land exactly on a grid point (e.g. 0.98 against a
+    0.05 step) — the real operating point must always have its own exact
+    row, not just nearby approximations.
+    """
+    step = config.OOD_REPORT_THRESHOLD_GRID_STEP
+    num_steps = round(1.0 / step) + 1
+    grid = [float(t) for t in np.linspace(0.0, 1.0, num_steps)]
+    if not any(abs(t - chosen_threshold) < 1e-9 for t in grid):
+        grid.append(float(chosen_threshold))
+    return sorted(grid)
+
+
+def _sweep_row(
+    threshold: float,
+    val_confidence: np.ndarray,
+    val_y_true: np.ndarray,
+    val_y_pred: np.ndarray,
+    negative_confidence: np.ndarray,
+    plantdoc_confidence: np.ndarray = None,
+    plantdoc_y_true: np.ndarray = None,
+    plantdoc_y_pred: np.ndarray = None,
+) -> dict:
+    """One row of the reporting-only threshold sweep: the same per-population
+    summary tune_ood_rejection() reports at the single chosen threshold, but
+    at a candidate threshold instead. Never influences which threshold is
+    actually deployed — only choose_threshold()'s own search does that.
+    """
+    row = {
+        "threshold": threshold,
+        "validation": _population_summary(
+            "validation_in_distribution", val_confidence, threshold, val_y_true, val_y_pred
+        ),
+        "intel_negatives": _population_summary("intel_negatives_out_of_distribution", negative_confidence, threshold),
+    }
+    if plantdoc_confidence is not None:
+        row["plantdoc"] = _population_summary(
+            "plantdoc_external_field_photos", plantdoc_confidence, threshold, plantdoc_y_true, plantdoc_y_pred
+        )
+    return row
 
 
 def _plantdoc_safety_note(plantdoc_summary: dict, overall_plantdoc_accuracy: float, threshold: float) -> str:
@@ -255,8 +321,9 @@ def tune_ood_rejection(
         "accuracy_on_accepted_val_samples": val_summary["accuracy_on_accepted"],
     }
 
-    if plantdoc_y_true is not None:
-        plantdoc_confidence = plantdoc_y_prob.max(axis=1)
+    plantdoc_confidence = plantdoc_y_prob.max(axis=1) if plantdoc_y_true is not None else None
+
+    if plantdoc_confidence is not None:
         plantdoc_summary = _population_summary(
             "plantdoc_external_field_photos", plantdoc_confidence, threshold, plantdoc_y_true, plantdoc_y_pred
         )
@@ -268,6 +335,32 @@ def tune_ood_rejection(
         result["plantdoc_safety_note"] = _plantdoc_safety_note(plantdoc_summary, overall_plantdoc_accuracy, threshold)
 
     result["population_comparison_at_chosen_threshold"] = population_comparison
+
+    result["ood_threshold_sweep"] = {
+        "grid_step": config.OOD_REPORT_THRESHOLD_GRID_STEP,
+        "note": (
+            "Reporting only -- this sweep never influences chosen_threshold above; "
+            "choose_threshold() only ever sees the validation split and Intel negatives. "
+            "Each row's plantdoc.num_confident_wrong/pct_confident_wrong (accepted AND "
+            "misclassified, as a fraction of ALL PlantDoc images) is the figure that "
+            "matters for user safety: it shows where the app becomes safe only by "
+            "rejecting nearly everything, versus where it still hands out confident "
+            "wrong diagnoses."
+        ),
+        "rows": [
+            _sweep_row(
+                t,
+                val_confidence,
+                val_y_true,
+                val_y_pred,
+                negative_confidence,
+                plantdoc_confidence,
+                plantdoc_y_true,
+                plantdoc_y_pred,
+            )
+            for t in _sweep_thresholds(threshold)
+        ],
+    }
 
     android_metadata_path = _update_android_metadata(threshold)
     result["android_model_metadata_path"] = str(android_metadata_path)

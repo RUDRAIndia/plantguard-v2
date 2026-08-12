@@ -62,6 +62,8 @@ def test_population_summary_reports_accepted_accuracy_when_labels_given():
     assert summary["num_accepted"] == 3  # the 0.10-confidence sample is rejected
     assert summary["rejection_rate"] == pytest.approx(0.25)
     assert summary["accuracy_on_accepted"] == pytest.approx(2 / 3)  # 2 of the 3 accepted are correct
+    assert summary["num_confident_wrong"] == 1  # index 1: accepted AND wrong
+    assert summary["pct_confident_wrong"] == pytest.approx(0.25)  # 1 of all 4 samples
     assert summary["mean_confidence"] == pytest.approx(np.mean(confidence))
     assert summary["median_confidence"] == pytest.approx(np.median(confidence))
 
@@ -74,6 +76,8 @@ def test_population_summary_omits_accuracy_when_no_labels_given():
     assert summary["accuracy_on_accepted"] is None
     assert summary["num_accepted"] == 0
     assert summary["rejection_rate"] == pytest.approx(1.0)
+    assert summary["num_confident_wrong"] is None
+    assert summary["pct_confident_wrong"] is None
 
 
 def test_population_summary_accuracy_is_none_when_nothing_is_accepted():
@@ -85,6 +89,63 @@ def test_population_summary_accuracy_is_none_when_nothing_is_accepted():
 
     assert summary["num_accepted"] == 0
     assert summary["accuracy_on_accepted"] is None
+    assert summary["num_confident_wrong"] == 0  # nothing accepted, so nothing can be confidently wrong
+    assert summary["pct_confident_wrong"] == pytest.approx(0.0)
+
+
+def test_sweep_thresholds_covers_the_full_grid_and_includes_the_chosen_threshold():
+    thresholds = ood._sweep_thresholds(chosen_threshold=0.98)
+
+    assert thresholds[0] == pytest.approx(0.0)
+    assert thresholds[-1] == pytest.approx(1.0)
+    assert any(abs(t - 0.98) < 1e-9 for t in thresholds)
+    # Every consecutive gap must be <= the configured step (the chosen
+    # threshold's insertion may create one gap smaller than the step, never
+    # larger, and never a duplicate row).
+    assert len(thresholds) == len(set(round(t, 9) for t in thresholds))
+
+
+def test_sweep_thresholds_does_not_duplicate_a_threshold_already_on_the_grid():
+    thresholds = ood._sweep_thresholds(chosen_threshold=0.05)
+    assert sum(1 for t in thresholds if abs(t - 0.05) < 1e-9) == 1
+
+
+def test_sweep_row_matches_population_summary_and_never_influences_deployment():
+    val_confidence = np.array([0.99, 0.5, 0.99])
+    val_y_true = np.array([0, 1, 2])
+    val_y_pred = np.array([0, 1, 0])
+    negative_confidence = np.array([0.1, 0.9])
+    plantdoc_confidence = np.array([0.99, 0.99, 0.2])
+    plantdoc_y_true = np.array([0, 1, 2])
+    plantdoc_y_pred = np.array([0, 5, 2])  # index 1: accepted (0.99) and wrong
+
+    row = ood._sweep_row(
+        0.6,
+        val_confidence,
+        val_y_true,
+        val_y_pred,
+        negative_confidence,
+        plantdoc_confidence,
+        plantdoc_y_true,
+        plantdoc_y_pred,
+    )
+
+    assert row["threshold"] == 0.6
+    assert row["validation"] == ood._population_summary(
+        "validation_in_distribution", val_confidence, 0.6, val_y_true, val_y_pred
+    )
+    assert row["intel_negatives"] == ood._population_summary(
+        "intel_negatives_out_of_distribution", negative_confidence, 0.6
+    )
+    assert row["plantdoc"]["num_confident_wrong"] == 1
+    assert row["plantdoc"]["pct_confident_wrong"] == pytest.approx(1 / 3)
+
+
+def test_sweep_row_omits_plantdoc_when_not_supplied():
+    row = ood._sweep_row(
+        0.6, np.array([0.9]), np.array([0]), np.array([0]), np.array([0.1])
+    )
+    assert "plantdoc" not in row
 
 
 def test_plantdoc_safety_note_names_the_harm_case_when_gate_provides_no_filtering():
