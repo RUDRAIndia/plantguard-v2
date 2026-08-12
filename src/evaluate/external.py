@@ -111,8 +111,15 @@ def _per_class_table(
 
 
 def evaluate_plantdoc(model, model_name: str) -> tuple:
-    """Returns (results_dict, y_true, y_pred, paths) — the predictions and
-    paths are for src/evaluate/gradcam.py's PlantDoc-failure sampling.
+    """Returns (results_dict, y_true, y_pred, y_prob, paths). y_true/y_pred/
+    paths feed src/evaluate/gradcam.py's PlantDoc-failure sampling; y_prob
+    (raw per-class softmax, not yet reduced to max-confidence) feeds
+    src/evaluate/ood.py's report-only PlantDoc arm — the max-softmax
+    confidence of predictions the OOD gate would accept or reject at its
+    already-chosen threshold. PlantDoc is never used to choose that
+    threshold (external test set — CLAUDE.md rule 2's spirit extended to
+    tuning, not just training/selection); only to report what it does once
+    already fixed.
     """
     mapping_report_data = mapping_report.build_report(mapping.count_plantdoc_images())
     report_path = config.ARTIFACTS_DIR / "plantdoc_mapping.json"
@@ -165,4 +172,4 @@ def evaluate_plantdoc(model, model_name: str) -> tuple:
         },
         "mapping_report_path": str(report_path),
     }
-    return results, y_true, y_pred, paths
+    return results, y_true, y_pred, y_prob, paths

@@ -12,6 +12,13 @@ runs genuinely different, corrupted inputs through the model; no step here
 selects a model, tunes a threshold, or makes any decision using the test
 split's clean predictions beyond what Step 2 already reported.
 
+Step 3's PlantDoc predictions (y_true/y_pred/y_prob) are also threaded into
+Step 5: the OOD rejection threshold is tuned on validation + Intel negatives
+only (src/evaluate/ood.py never lets PlantDoc into that search), but is then
+scored against PlantDoc — report only, never retuned — since PlantDoc is
+the closest available proxy for what the app will actually see, and the
+threshold's behavior there was previously unmeasured.
+
 Run (Kaggle, once every config.CANDIDATE_MODELS entry has a real trained
 checkpoint from src/train_all.py — either locally in config.CHECKPOINT_DIR
 or restorable from it, since src/evaluate/model_selection.py restores and
@@ -79,7 +86,7 @@ def run() -> dict:
     print(f"[runner]   accuracy={test_metrics['accuracy']:.4f} macro_f1={test_metrics['macro_f1']:.4f}")
 
     print("[runner] Step 3/7: PlantDoc external evaluation...")
-    plantdoc_results, plantdoc_y_true, plantdoc_y_pred, plantdoc_paths = external.evaluate_plantdoc(
+    plantdoc_results, plantdoc_y_true, plantdoc_y_pred, plantdoc_y_prob, plantdoc_paths = external.evaluate_plantdoc(
         model, selected_model_name
     )
     _print_plantdoc_summary(plantdoc_results)
@@ -92,8 +99,21 @@ def run() -> dict:
     )
 
     print("[runner] Step 5/7: out-of-distribution rejection tuning...")
-    ood_results = ood.tune_ood_rejection(model, selected_model_name)
+    ood_results = ood.tune_ood_rejection(
+        model,
+        selected_model_name,
+        plantdoc_y_true=plantdoc_y_true,
+        plantdoc_y_pred=plantdoc_y_pred,
+        plantdoc_y_prob=plantdoc_y_prob,
+    )
     print(f"[runner]   threshold={ood_results['chosen_threshold']:.2f}")
+    plantdoc_arm = ood_results["plantdoc_at_chosen_threshold"]
+    print(
+        f"[runner]   plantdoc: rejection_rate={plantdoc_arm['rejection_rate']:.4f} "
+        f"num_accepted={plantdoc_arm['num_accepted']}/{plantdoc_arm['num_samples']} "
+        f"accuracy_on_accepted={plantdoc_arm['accuracy_on_accepted']}"
+    )
+    print(f"[runner]   {ood_results['plantdoc_safety_note']}")
 
     print("[runner] Step 6/7: robustness under corruption...")
     robustness_results = robustness.evaluate_robustness(model, selected_model_name)

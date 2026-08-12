@@ -93,3 +93,51 @@ def test_ood_tuning_runs_end_to_end_and_updates_android_metadata(eval_env):
     assert updated["confidence_threshold"] == result["chosen_threshold"]
     assert "confidence_threshold_source" in updated
     assert updated["placeholder"] is True  # untouched field, per CLAUDE.md rule 13
+    # No real PlantDoc data was supplied -- the report-only PlantDoc arm
+    # must not appear at all (never a null/placeholder stand-in for it).
+    assert "plantdoc_at_chosen_threshold" not in result
+    assert "plantdoc_safety_note" not in result
+    assert len(result["population_comparison_at_chosen_threshold"]) == 2
+
+
+def test_ood_tuning_reports_a_plantdoc_arm_without_retuning_the_threshold(eval_env):
+    """Feeds synthetic-but-real (softmax-normalized) PlantDoc-shaped
+    predictions straight in as arrays -- src/evaluate/ood.py's new PlantDoc
+    arm only needs y_true/y_pred/y_prob, never real PlantDoc images, so this
+    exercises the real wiring without needing a real PlantDoc download
+    (CLAUDE.md rule 10).
+    """
+    _, model = eval_env
+    num_classes = len(config.PLANTVILLAGE_CLASS_NAMES)
+    rng = np.random.default_rng(0)
+    n = 24
+    plantdoc_y_true = rng.integers(0, num_classes, size=n)
+    logits = rng.normal(size=(n, num_classes))
+    plantdoc_y_prob = np.exp(logits) / np.exp(logits).sum(axis=1, keepdims=True)
+    plantdoc_y_pred = plantdoc_y_prob.argmax(axis=1)
+
+    baseline = ood.tune_ood_rejection(model, MODEL_NAME)
+    result = ood.tune_ood_rejection(
+        model,
+        MODEL_NAME,
+        plantdoc_y_true=plantdoc_y_true,
+        plantdoc_y_pred=plantdoc_y_pred,
+        plantdoc_y_prob=plantdoc_y_prob,
+    )
+
+    # Supplying PlantDoc data must never change the chosen threshold itself
+    # (it's tuned on validation + negatives only -- PlantDoc is report-only).
+    assert result["chosen_threshold"] == baseline["chosen_threshold"]
+
+    plantdoc_arm = result["plantdoc_at_chosen_threshold"]
+    assert plantdoc_arm["num_samples"] == n
+    assert 0.0 <= plantdoc_arm["rejection_rate"] <= 1.0
+    assert 0.0 <= plantdoc_arm["mean_confidence"] <= 1.0
+    assert isinstance(result["plantdoc_safety_note"], str) and len(result["plantdoc_safety_note"]) > 0
+
+    populations = {p["population"] for p in result["population_comparison_at_chosen_threshold"]}
+    assert populations == {
+        "validation_in_distribution",
+        "intel_negatives_out_of_distribution",
+        "plantdoc_external_field_photos",
+    }
