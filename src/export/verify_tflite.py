@@ -48,7 +48,10 @@ def load_interpreter(tflite_source) -> tf.lite.Interpreter:
     identically.
     """
     tflite_bytes = Path(tflite_source).read_bytes() if isinstance(tflite_source, (str, Path)) else tflite_source
-    interpreter = tf.lite.Interpreter(model_content=tflite_bytes)
+    interpreter = tf.lite.Interpreter(
+    model_content=tflite_bytes,
+    experimental_op_resolver_type=tf.lite.experimental.OpResolverType.BUILTIN_WITHOUT_DEFAULT_DELEGATES,
+)
     interpreter.allocate_tensors()
     return interpreter
 
