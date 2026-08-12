@@ -603,6 +603,26 @@ KAGGLE_PERSIST_DATASET_SLUG = "plantguard-artifacts"
 # on Kaggle (writable, gitignored, never the read-only input mount).
 KAGGLE_PERSIST_STAGING_DIR = DATA_ROOT / "_kaggle_artifacts_staging"
 
+# The flat, non-per-model files under ARTIFACTS_DIR that
+# src/models/kaggle_persist_artifacts.py pushes/restores as a single bundle
+# (under the "artifacts__" prefix in the same KAGGLE_PERSIST_DATASET_SLUG
+# dataset) — everything a report/figure number is read from
+# (RESULTS_JSON_PATH) plus the dedupe/split/inventory/mapping outputs that
+# take ~20 minutes to regenerate (src/data/dedupe.py, split_report.py,
+# inventory.py, mapping_report.py). EVAL_FIGURES_DIR is pushed/restored
+# separately since its contents are a directory tree, not fixed filenames.
+KAGGLE_PERSIST_ARTIFACT_FILENAMES = (
+    "results.json",
+    "image_groups.json",
+    "dedupe_report.json",
+    "dedupe_report.md",
+    "splits.json",
+    "split_report.md",
+    "inventory.json",
+    "inventory.md",
+    "plantdoc_mapping.json",
+)
+
 # --smoke: two short epochs (CLAUDE.md rule 10 — local runs are smoke tests
 # only) on a synthetic on-disk dataset built by src/data/smoke_dataset.py,
 # never on the real splits.json (which doesn't exist on a machine that has

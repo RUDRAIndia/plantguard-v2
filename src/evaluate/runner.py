@@ -18,6 +18,13 @@ or restorable from it, since src/evaluate/model_selection.py restores and
 recomputes each candidate's validation macro-F1 directly from its
 checkpoint, never from a training-log history file):
     python -m src.evaluate.runner
+
+On Kaggle, once results.json is written, run() pushes it — along with
+artifacts/figures/ and the dedupe/split/inventory/mapping outputs — to the
+same Kaggle-persisted dataset src/models/kaggle_persist.py already uses for
+checkpoints (src/models/kaggle_persist_artifacts.py), so a session recycle
+never destroys them. See that module's docstring for the push/restore
+design and src/data/prepare_artifacts.py for where restore happens.
 """
 
 import json
@@ -28,7 +35,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src import config  # noqa: E402
 from src.evaluate import calibration, external, gradcam, inference, metrics, model_selection, ood, robustness  # noqa: E402
-from src.models import training_utils  # noqa: E402
+from src.models import kaggle_persist_artifacts, training_utils  # noqa: E402
 
 
 def _print_plantdoc_summary(plantdoc_results: dict) -> None:
@@ -120,6 +127,10 @@ def run() -> dict:
     config.RESULTS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
     config.RESULTS_JSON_PATH.write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"[runner] Wrote {config.RESULTS_JSON_PATH}")
+
+    if config.IS_KAGGLE:
+        kaggle_persist_artifacts.push_data_artifacts()
+
     return results
 
 
