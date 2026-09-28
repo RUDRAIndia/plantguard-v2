@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "placeholder": true,
+  "placeholder": false,
   "image_size": 224,
-  "input_format": "uint8, RGB, HWC, raw 0-255 pixel values, no client-side normalization (the .tflite's own input-tensor quantization already absorbs whatever float preprocessing was used at training time)",
-  "confidence_threshold": 0.6,
+  "input_format": "float32, RGB, HWC, raw 0-255 pixel values, no client-side normalization (preprocessing is baked into the graph)",
+  "confidence_threshold": 0.95,
   "class_names_source": "Verbatim copy of src/config.py:PLANTVILLAGE_CLASS_NAMES (alphabetically sorted = index order). Kotlin cannot import Python, so this array is the Android-side copy of that source of truth. If config.py's tuple ever changes order, membership, or count, this array must be re-synced in the same commit (CLAUDE.md rule 7).",
   "class_names": [
     "Apple___Apple_scab",
@@ -45,5 +45,11 @@
     "Tomato___Tomato_mosaic_virus",
     "Tomato___healthy"
   ],
-  "notes": "Placeholder model: a tiny randomly-initialized CNN, structurally a valid uint8-in/uint8-out full-integer-quantized .tflite, but never trained on real data. Predictions are meaningless until this file and model.tflite are both replaced by a real export from src/export/to_tflite.py conforming to this same schema."
+  "notes": "Placeholder model: a tiny randomly-initialized CNN, structurally a valid uint8-in/uint8-out full-integer-quantized .tflite, but never trained on real data. Predictions are meaningless until this file and model.tflite are both replaced by a real export from src/export/to_tflite.py conforming to this same schema.",
+  "quantization": "float16",
+  "confidence_bands": {
+    "confident_min": 0.95,
+    "possible_min": 0.5
+  },
+  "confidence_threshold_source": "Youden's J on PlantVillage val + Intel negatives, fine-tuned MobileNetV3Large, 2026-09-28"
 }
