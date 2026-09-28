@@ -5,15 +5,19 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.plantguard.app.R
 import com.plantguard.app.data.history.AppDatabase
+import com.plantguard.app.data.history.HistoryCandidates
 import com.plantguard.app.data.history.HistoryEntry
 import com.plantguard.app.ml.ImagePreprocessing
 import com.plantguard.app.ml.PlantClassifier
 import com.plantguard.app.util.ImageStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,23 +28,18 @@ data class CameraUiState(
     val errorMessage: String? = null,
 )
 
-/**
- * Owns the capture/pick -> preprocess -> classify -> save -> record pipeline.
- * Runs entirely off the main thread (Dispatchers.IO — the dominant costs
- * here are file decode and the tiny CPU inference, neither of which may
- * touch the UI thread or the app will jank/ANR during a photo).
- */
 class CameraViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(CameraUiState())
-    val uiState: StateFlow<CameraUiState> = _uiState
+    val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
-    // One-shot "go to this history entry's Result screen" event. A Channel
-    // (not a second StateFlow) because navigation should fire exactly once
-    // per capture, not re-fire on every recomposition/config change the way
-    // a re-collected StateFlow value would.
+    /**
+     * Navigation is a one-shot event, not state: re-emitting it on every
+     * recomposition would push the user to the result screen again after they
+     * came back. A Channel delivers it exactly once.
+     */
     private val navigationChannel = Channel<Long>(Channel.BUFFERED)
-    val navigationEvents = navigationChannel.receiveAsFlow()
+    val navigationEvents: Flow<Long> = navigationChannel.receiveAsFlow()
 
     private val classifier by lazy { PlantClassifier.getInstance(getApplication()) }
     private val historyDao by lazy { AppDatabase.getInstance(getApplication()).historyDao() }
@@ -53,6 +52,26 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         processImage { ImagePreprocessing.decodeBitmapFromUri(getApplication(), uri) }
     }
 
+    /** The camera itself failed to save a frame — nothing to classify. */
+    fun onCaptureFailed() {
+        _uiState.value = CameraUiState(
+            errorMessage = getApplication<Application>().getString(R.string.camera_capture_failed),
+        )
+    }
+
+    fun onErrorDismissed() {
+        _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    /**
+     * Decode, classify, save and record one photo, then hand its history id to
+     * the result screen.
+     *
+     * The whole chain runs on [Dispatchers.IO] off the main thread. Note that the
+     * result screen reads the saved row rather than receiving the
+     * ClassificationResult directly, which is why the top three candidates are
+     * persisted here: they are the transport as well as the record.
+     */
     private fun processImage(decode: () -> Bitmap) {
         _uiState.value = CameraUiState(isProcessing = true)
         viewModelScope.launch {
@@ -63,22 +82,23 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     val savedFile = ImageStorage.save(getApplication(), bitmap)
                     val entry = HistoryEntry(
                         imagePath = savedFile.absolutePath,
-                        isUnclear = result.isUnclear,
-                        classNameOrNull = result.className,
-                        confidence = result.confidence,
+                        topClassName = result.candidates.first().className,
+                        confidence = result.topConfidence,
                         inferenceLatencyMs = result.inferenceLatencyMs,
                         timestampMillis = System.currentTimeMillis(),
+                        topCandidatesJson = HistoryCandidates.encode(result.candidates),
                     )
                     historyDao.insert(entry)
                 }
                 navigationChannel.send(entryId)
                 _uiState.value = CameraUiState(isProcessing = false)
             } catch (e: Exception) {
-                // A corrupt/unreadable photo shouldn't crash the app — show
-                // it to the user instead, so the user can just retake it.
+                // A corrupt or unreadable photo shouldn't crash the app — show it
+                // to the user instead, so they can just retake it.
                 _uiState.value = CameraUiState(
                     isProcessing = false,
-                    errorMessage = "Could not process that photo: ${e.message}",
+                    errorMessage = getApplication<Application>()
+                        .getString(R.string.camera_process_failed, e.message ?: ""),
                 )
             }
         }

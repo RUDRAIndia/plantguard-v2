@@ -1,76 +1,50 @@
 package com.plantguard.app.ui.camera
 
 import android.Manifest
-import android.app.Activity
-import android.content.Intent
+import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.io.File
 
+/**
+ * The capture screen: live preview, framing guide, shutter and gallery picker.
+ *
+ * Three states, decided by camera permission. The gallery path works in all of
+ * them — a user who refuses the camera can still analyse a photo they already
+ * have, and that path needs no permission at all on any supported API level
+ * because it goes through the system photo picker.
+ */
 @Composable
 fun CameraScreen(
     onNavigateToResult: (Long) -> Unit,
-    onNavigateToHistory: () -> Unit,
+    onNavigateUp: () -> Unit,
+    onOpenPhotoTips: () -> Unit,
     viewModel: CameraViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) {
-        viewModel.navigationEvents.collect { entryId -> onNavigateToResult(entryId) }
-    }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -78,21 +52,21 @@ fun CameraScreen(
                 PackageManager.PERMISSION_GRANTED,
         )
     }
-    var permissionPermanentlyDenied by remember { mutableStateOf(false) }
+    // rememberSaveable: this survives the configuration change that a trip to
+    // Android Settings and back can cause, so the "permanently denied" screen
+    // does not flicker back to the rationale.
+    var permissionPermanentlyDenied by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         hasCameraPermission = granted
         if (!granted) {
-            val activity = context as? Activity
-            permissionPermanentlyDenied = activity != null &&
-                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
+            // Android gives no direct "don't ask again" signal. The convention is:
+            // if the system will no longer show a rationale after a denial, the
+            // user has permanently denied it.
+            permissionPermanentlyDenied = !context.shouldShowCameraRationale()
         }
-    }
-
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -100,136 +74,99 @@ fun CameraScreen(
     ) { uri: Uri? ->
         if (uri != null) viewModel.onImagePicked(uri)
     }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        val launchGalleryPicker = {
-            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-        }
-
-        when {
-            hasCameraPermission -> CameraPreviewWithControls(
-                onImageCaptured = { file -> viewModel.onImageCaptured(file) },
-                onPickGallery = launchGalleryPicker,
-                onOpenHistory = onNavigateToHistory,
-            )
-
-            permissionPermanentlyDenied -> PermissionPermanentlyDenied(onPickGallery = launchGalleryPicker)
-
-            else -> PermissionRationale(
-                onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                onPickGallery = launchGalleryPicker,
-            )
-        }
-
-        if (uiState.isProcessing) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color.Black.copy(alpha = 0.5f),
-            ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Text("Analyzing photo...", color = Color.White, modifier = Modifier.padding(top = 12.dp))
-                    }
-                }
-            }
-        }
-
-        uiState.errorMessage?.let { message ->
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp),
-                color = MaterialTheme.colorScheme.errorContainer,
-            ) {
-                Text(message, modifier = Modifier.padding(12.dp))
-            }
-        }
+    val launchGalleryPicker = {
+        galleryLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
     }
-}
 
-/** CameraX preview (View-based PreviewView, wrapped via AndroidView) plus the shutter/gallery/history controls. */
-@Composable
-private fun CameraPreviewWithControls(
-    onImageCaptured: (File) -> Unit,
-    onPickGallery: () -> Unit,
-    onOpenHistory: () -> Unit,
-) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
 
-    // ImageCapture use case is created once and reused for every shutter press.
+    LaunchedEffect(Unit) {
+        viewModel.navigationEvents.collect { entryId -> onNavigateToResult(entryId) }
+    }
+
+    // One ImageCapture instance for the life of the screen, shared by the preview
+    // binding and the shutter.
     val imageCapture = remember { ImageCapture.Builder().build() }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(
+        when {
+            hasCameraPermission -> CameraCaptureContent(
+                imageCapture = imageCapture,
+                isProcessing = uiState.isProcessing,
+                onShutter = {
+                    takePhoto(
+                        context = context,
+                        imageCapture = imageCapture,
+                        onImageCaptured = viewModel::onImageCaptured,
+                        onError = viewModel::onCaptureFailed,
+                    )
+                },
+                onPickGallery = launchGalleryPicker,
+                onNavigateUp = onNavigateUp,
+                onOpenPhotoTips = onOpenPhotoTips,
+            )
+
+            permissionPermanentlyDenied -> CameraPermissionDenied(
+                onPickGallery = launchGalleryPicker,
+                onNavigateUp = onNavigateUp,
+            )
+
+            else -> CameraPermissionRationale(
+                onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                onPickGallery = launchGalleryPicker,
+                onNavigateUp = onNavigateUp,
+            )
+        }
+
+        AnimatedVisibility(
+            visible = uiState.isProcessing,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            ScanningOverlay()
+        }
+
+        // A dismissible banner, not a silent log. Both a failed capture and an
+        // unreadable photo land here.
+        CameraErrorBanner(
+            message = uiState.errorMessage,
+            onDismiss = viewModel::onErrorDismissed,
             modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                val previewView = PreviewView(ctx)
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                cameraProviderFuture.addListener(
-                    {
-                        val cameraProvider = cameraProviderFuture.get()
-                        val preview = Preview.Builder().build().also {
-                            it.surfaceProvider = previewView.surfaceProvider
-                        }
-                        cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(
-                            lifecycleOwner,
-                            CameraSelector.DEFAULT_BACK_CAMERA,
-                            preview,
-                            imageCapture,
-                        )
-                    },
-                    ContextCompat.getMainExecutor(ctx),
-                )
-                previewView
-            },
         )
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp),
-        ) {
-            IconButton(onClick = onOpenHistory) {
-                Icon(Icons.Filled.History, contentDescription = "History", tint = Color.White)
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onPickGallery) {
-                Icon(Icons.Filled.PhotoLibrary, contentDescription = "Choose from gallery", tint = Color.White)
-            }
-
-            FloatingActionButton(
-                onClick = { takePhoto(context, imageCapture, onImageCaptured) },
-                modifier = Modifier.size(72.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(MaterialTheme.colorScheme.primary, shape = CircleShape),
-                )
-            }
-
-            // Spacer to visually balance the gallery icon on the other side.
-            Box(modifier = Modifier.size(48.dp))
-        }
     }
 }
 
+/**
+ * Whether Android would still show a permission rationale — false after the user
+ * has permanently denied the permission.
+ *
+ * Needs an Activity, and `LocalContext` inside a Compose hierarchy is one; the
+ * cast is guarded so a preview context can never crash the screen.
+ */
+private fun Context.shouldShowCameraRationale(): Boolean {
+    val activity = this as? android.app.Activity ?: return true
+    return androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+        activity,
+        Manifest.permission.CAMERA,
+    )
+}
+
+/**
+ * Takes one photo to a file in the cache directory.
+ *
+ * Cache, not permanent storage: the bitmap is re-saved to the app's files
+ * directory by ImageStorage once it has been decoded and classified, so this
+ * intermediate JPEG is disposable and Android may reclaim it.
+ */
 private fun takePhoto(
-    context: android.content.Context,
+    context: Context,
     imageCapture: ImageCapture,
     onImageCaptured: (File) -> Unit,
+    onError: () -> Unit,
 ) {
     val photoFile = File(context.cacheDir, "capture_${System.currentTimeMillis()}.jpg")
     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
@@ -243,62 +180,11 @@ private fun takePhoto(
             }
 
             override fun onError(exception: ImageCaptureException) {
-                // Nothing landed in history for a failed capture — the user
-                // just sees the shutter didn't do anything and can retry.
+                // Previously this only printed a stack trace, so a failed shutter
+                // looked to the user like the button simply did nothing.
                 exception.printStackTrace()
+                onError()
             }
         },
     )
-}
-
-@Composable
-private fun PermissionRationale(onRequestPermission: () -> Unit, onPickGallery: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("PlantGuard needs camera access to photograph leaves.", textAlign = TextAlign.Center)
-        Spacer(modifier = Modifier.height(12.dp))
-        Button(onClick = onRequestPermission) {
-            Text("Grant camera permission")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(onClick = onPickGallery) {
-            Text("Choose a photo from gallery instead")
-        }
-    }
-}
-
-@Composable
-private fun PermissionPermanentlyDenied(onPickGallery: () -> Unit) {
-    val context = LocalContext.current
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            "Camera permission was denied and can't be requested again from here. " +
-                "You can still use the gallery picker, or enable Camera in system Settings.",
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Button(onClick = {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
-            }
-            context.startActivity(intent)
-        }) {
-            Text("Open Settings")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(onClick = onPickGallery) {
-            Text("Choose a photo from gallery instead")
-        }
-    }
 }

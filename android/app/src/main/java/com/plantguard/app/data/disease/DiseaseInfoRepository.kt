@@ -4,12 +4,21 @@ import android.content.Context
 import org.json.JSONObject
 
 /**
- * Reads android/app/src/main/assets/disease_info.json. Only a handful of
- * the 38 classes have a real entry right now (the rest are simply absent —
- * see that file's _readme field) — [lookup] returning null for a missing
- * class name is the expected, normal case, not an error.
+ * Reads android/app/src/main/assets/disease_info.json, which now holds a
+ * verified entry for every one of the 38 classes — name, symptoms, generic
+ * management practice and a real citation, with no chemical, dose or schedule
+ * anywhere (CLAUDE.md rule 8; enforced by tests/test_disease_info.py).
+ *
+ * [lookup] is still nullable-returning: the keys must match
+ * model_metadata.json's class_names exactly, and a null means those two assets
+ * have drifted apart. Callers fall back to formatting the raw class name rather
+ * than crashing, so a single missing entry degrades one screen instead of
+ * breaking the app.
+ *
+ * A process-lifetime singleton, because the asset is ~36 KB of JSON and a
+ * fresh instance per screen re-parsed all of it on every result view.
  */
-class DiseaseInfoRepository(context: Context) {
+class DiseaseInfoRepository private constructor(context: Context) {
 
     private val entries: Map<String, DiseaseInfo> by lazy { loadEntries(context) }
 
@@ -33,7 +42,18 @@ class DiseaseInfoRepository(context: Context) {
         return result
     }
 
-    private companion object {
-        const val ASSET_FILE_NAME = "disease_info.json"
+    companion object {
+        private const val ASSET_FILE_NAME = "disease_info.json"
+
+        @Volatile
+        private var instance: DiseaseInfoRepository? = null
+
+        fun getInstance(context: Context): DiseaseInfoRepository {
+            return instance ?: synchronized(this) {
+                // applicationContext, never an Activity's: this instance outlives
+                // any single screen, and holding an Activity would leak it.
+                instance ?: DiseaseInfoRepository(context.applicationContext).also { instance = it }
+            }
+        }
     }
 }

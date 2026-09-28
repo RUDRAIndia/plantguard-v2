@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    XML copies of the two palette colours the *window* needs before Compose has
+    drawn anything. The real palette lives in Kotlin (ui/theme/Color.kt); these two
+    exist only so the launch window matches the app instead of flashing white.
+-->
+<resources>
+    <color name="window_background_light">#FAF6EC</color>
+    <color name="window_background_dark">#11150F</color>
+</resources>

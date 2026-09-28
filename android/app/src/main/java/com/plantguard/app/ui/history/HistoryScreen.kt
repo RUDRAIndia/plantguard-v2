@@ -1,116 +1,168 @@
 package com.plantguard.app.ui.history
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.HistoryToggleOff
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.plantguard.app.data.history.HistoryEntry
-import com.plantguard.app.util.ClassNameFormatter
+import com.plantguard.app.R
+import com.plantguard.app.ml.ConfidenceTier
+import com.plantguard.app.ui.components.PlantGuardTopBar
+import com.plantguard.app.ui.components.StoredImage
+import com.plantguard.app.ui.components.TierBadge
 import java.text.DateFormat
 import java.util.Date
+import kotlin.math.roundToInt
 
+/**
+ * Every past prediction, newest first, each carrying the same tier badge the
+ * result screen uses — so a scan down history shows at a glance which answers
+ * were confident and which were hedged or unrecognised, without opening any of
+ * them.
+ */
 @Composable
 fun HistoryScreen(
     onOpenResult: (Long) -> Unit,
+    onNavigateUp: () -> Unit,
     viewModel: HistoryViewModel = viewModel(),
 ) {
-    val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val rows by viewModel.rows.collectAsStateWithLifecycle()
 
-    if (entries.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No predictions yet.")
-        }
-        return
-    }
-
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(entries, key = { it.id }) { entry ->
-            HistoryRow(entry = entry, onClick = { onOpenResult(entry.id) })
-            HorizontalDivider()
-        }
-    }
-}
-
-@Composable
-private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Thumbnail(imagePath = entry.imagePath)
-
-        Column(modifier = Modifier.padding(start = 12.dp)) {
-            val title = if (entry.isUnclear) {
-                "Unclear photo"
-            } else {
-                entry.classNameOrNull?.let(ClassNameFormatter::humanize) ?: "Unknown"
-            }
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${(entry.confidence * 100).toInt()}% · ${formatTimestamp(entry.timestampMillis)}",
-                style = MaterialTheme.typography.bodySmall,
+    Scaffold(
+        topBar = {
+            PlantGuardTopBar(
+                title = stringResource(R.string.history_title),
+                onNavigateUp = onNavigateUp,
             )
+        },
+    ) { innerPadding ->
+        if (rows.isEmpty()) {
+            EmptyHistory(modifier = Modifier.padding(innerPadding))
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items(rows, key = { it.id }) { row ->
+                    HistoryRowCard(row = row, onClick = { onOpenResult(row.id) })
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun Thumbnail(imagePath: String) {
-    val bitmap = remember(imagePath) { decodeThumbnail(imagePath) }
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
+private fun EmptyHistory(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.HistoryToggleOff,
             contentDescription = null,
-            modifier = Modifier.size(56.dp),
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(48.dp),
         )
-    } else {
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = stringResource(R.string.history_empty_title),
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.history_empty_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
     }
 }
 
-private fun decodeThumbnail(path: String, maxDimension: Int = 96): Bitmap? {
-    val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(path, boundsOptions)
-    if (boundsOptions.outWidth <= 0 || boundsOptions.outHeight <= 0) return null
-
-    var sampleSize = 1
-    while (boundsOptions.outWidth / sampleSize > maxDimension ||
-        boundsOptions.outHeight / sampleSize > maxDimension
+@Composable
+private fun HistoryRowCard(row: HistoryRow, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        sampleSize *= 2
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StoredImage(
+                path = row.imagePath,
+                contentDescription = null,
+                maxDimension = 160,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(MaterialTheme.shapes.small),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                TierBadge(tier = row.tier)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = titleFor(row),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = stringResource(
+                        R.string.history_row_meta,
+                        (row.confidence * 100).roundToInt(),
+                        formatTimestamp(row.timestampMillis),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
-    val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-    return BitmapFactory.decodeFile(path, decodeOptions)
+}
+
+@Composable
+private fun titleFor(row: HistoryRow): String = when (row.tier) {
+    ConfidenceTier.UNRECOGNISED -> stringResource(R.string.history_unrecognised_row)
+    ConfidenceTier.POSSIBLE -> stringResource(R.string.history_possible_row, row.candidateCount)
+    ConfidenceTier.CONFIDENT -> row.displayName ?: stringResource(R.string.history_unrecognised_row)
 }
 
 private fun formatTimestamp(millis: Long): String =

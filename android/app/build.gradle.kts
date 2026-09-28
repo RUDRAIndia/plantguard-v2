@@ -15,7 +15,7 @@ android {
         minSdk = 24
         targetSdk = 37
         versionCode = 1
-        versionName = "0.1.0-placeholder"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -40,9 +40,8 @@ android {
         compose = true
     }
 
-    // The placeholder model.tflite and its metadata are real, committed
-    // assets (see android/README.md) — nothing here should compress or
-    // exclude them.
+    // model.tflite and its metadata are real, committed assets (see
+    // android/README.md) — nothing here should compress or exclude them.
     androidResources {
         noCompress += "tflite"
     }

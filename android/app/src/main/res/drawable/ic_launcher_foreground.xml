@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive-icon foreground layer: the leaf mark in pale green with a darker
+    midrib, drawn inside the inner 72x72dp safe zone of the 108x108dp canvas (the
+    launcher may crop anything outside it to a circle, squircle or rounded square).
+
+    Colours are baked in here rather than tinted, because an adaptive icon is drawn
+    by the launcher, outside the app's theme.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group android:translateX="30" android:translateY="30">
+        <group android:scaleX="1.0" android:scaleY="1.0">
+            <path
+                android:fillColor="#A5D6A7"
+                android:pathData="M38.6,6.2 C24.4,7.1 15.2,12.4 11.4,20.1 C8.2,26.5 9.4,33.4 13.6,38.0 L37.2,8.0 L15.6,40.9 C20.9,44.9 28.0,45.5 34.1,41.8 C41.6,37.3 46.4,28.0 38.6,6.2 Z" />
+            <path
+                android:fillColor="#A5D6A7"
+                android:pathData="M16.1,40.5 L12.7,43.9 C12.0,44.6 10.9,44.6 10.2,43.9 C9.5,43.2 9.5,42.1 10.2,41.4 L13.6,38.0 Z" />
+        </group>
+    </group>
+</vector>

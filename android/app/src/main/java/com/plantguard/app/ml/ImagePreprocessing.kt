@@ -12,7 +12,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * Turns a raw camera/gallery photo into the exact uint8 RGB buffer
+ * Turns a raw camera/gallery photo into the exact float32 RGB buffer
  * PlantClassifier feeds the model. Three real decisions live here, not
  * afterthoughts:
  *  1. Decode at a bounded size first (inSampleSize) — a full-resolution
@@ -48,19 +48,25 @@ object ImagePreprocessing {
         return Bitmap.createBitmap(bitmap, x, y, size, size)
     }
 
-    /** Raw uint8 RGB pixels, HWC order — exactly what the uint8-input model expects, no float math. */
-    fun toUint8Buffer(bitmap: Bitmap, size: Int): ByteBuffer {
+    /**
+     * Raw [0,255] float32 RGB pixels, HWC order — exactly what the float16-quantized model's
+     * `raw_pixels_0_255` input tensor expects (see src/export/to_tflite.py's
+     * _wrap_with_preprocessing). The backbone's own normalization is baked into the exported
+     * graph, so this must NOT scale/normalize anything itself — just cast each raw decoded
+     * pixel byte straight to float, unlike the old uint8 path this replaced.
+     */
+    fun toFloatBuffer(bitmap: Bitmap, size: Int): ByteBuffer {
         val resized =
             if (bitmap.width == size && bitmap.height == size) bitmap
             else Bitmap.createScaledBitmap(bitmap, size, size, true)
 
-        val buffer = ByteBuffer.allocateDirect(size * size * 3).order(ByteOrder.nativeOrder())
+        val buffer = ByteBuffer.allocateDirect(size * size * 3 * 4).order(ByteOrder.nativeOrder())
         val pixels = IntArray(size * size)
         resized.getPixels(pixels, 0, size, 0, 0, size, size)
         for (pixel in pixels) {
-            buffer.put(((pixel shr 16) and 0xFF).toByte()) // R
-            buffer.put(((pixel shr 8) and 0xFF).toByte())  // G
-            buffer.put((pixel and 0xFF).toByte())          // B
+            buffer.putFloat(((pixel shr 16) and 0xFF).toFloat()) // R
+            buffer.putFloat(((pixel shr 8) and 0xFF).toFloat())  // G
+            buffer.putFloat((pixel and 0xFF).toFloat())          // B
         }
         buffer.rewind()
         return buffer

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The app's leaf mark, used on the Home screen.
+
+    A pointed ovate blade with a stalk, drawn as a single filled silhouette so it
+    stays legible when scaled down and can be re-coloured by whatever draws it
+    (Compose tints it at the usage site). No brand colour is baked in here, which
+    is what lets the same mark sit on cream in light mode and on near-black in dark
+    mode. The launcher icon uses its own two-tone copy in
+    ic_launcher_foreground.xml, since an adaptive icon cannot be tinted at runtime.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Blade: tip at top-right, curving down to the stalk at bottom-left. -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M38.6,6.2 C24.4,7.1 15.2,12.4 11.4,20.1 C8.2,26.5 9.4,33.4 13.6,38.0 L37.2,8.0 L15.6,40.9 C20.9,44.9 28.0,45.5 34.1,41.8 C41.6,37.3 46.4,28.0 38.6,6.2 Z" />
+
+    <!-- Stalk. -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M16.1,40.5 L12.7,43.9 C12.0,44.6 10.9,44.6 10.2,43.9 C9.5,43.2 9.5,42.1 10.2,41.4 L13.6,38.0 Z" />
+</vector>

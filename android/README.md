@@ -1,64 +1,158 @@
 # PlantGuard Android app
 
-Kotlin + Jetpack Compose + CameraX, fully offline, `minSdk 24`. Built against
-a **placeholder** `.tflite` model so the app exists and runs well ahead of
-the real trained model (Day 9) — swapping in the real model later is just
-replacing two asset files (see "Swapping in the real model" below).
+Kotlin + Jetpack Compose + CameraX + Navigation Compose + Room, fully offline,
+`minSdk 24`. The app now runs against the real fine-tuned model (see "The
+model contract" below) and has a redesigned three-tier result flow — read
+"Why three tiers, not two" first if you're new to this codebase, since it
+shapes almost everything downstream of a prediction.
 
 ## What's in here right now
 
-- **Camera screen**: CameraX preview, shutter button, gallery picker
+- **Home screen** (the app's start destination, after the one-time
+  disclaimer): the app name, a leaf mark, and four large cards — Identify a
+  Plant, History, About, and How to Take a Good Photo.
+- **Camera screen**: CameraX preview with a subtle framing-guide overlay
+  showing roughly the square the classifier will actually see (it
+  centre-crops every photo), a shutter, a gallery picker
   (`ActivityResultContracts.PickVisualMedia` — needs no storage permission
-  on any Android version), a History icon.
-- **Result screen**: predicted disease, confidence, symptoms, generic
-  (non-chemical) management advice, and an always-shown line to confirm with
-  your local KVK / agricultural extension officer. If the model's top
-  probability is below the confidence threshold, this screen instead shows
-  an "Unclear photo" card with retake guidance — **no disease name at all**.
-  This out-of-distribution rejection path is the one that matters most: a
-  farmer must never be shown a confident diagnosis of a photo of soil or a
-  hand.
-- **History screen**: past predictions, stored locally in a Room database.
-- **Disclaimer**: shown once, on first launch.
-- **Inference latency**: measured with `System.nanoTime()` around the
-  LiteRT `Interpreter.run()` call, logged (`Log`/console) and shown on the
-  Result screen — screenshot it to report a real number from your phone.
+  on any Android version), and a scanning animation while inference runs
+  (which also blocks the shutter — the previous overlay let a second tap
+  start a second inference mid-flight).
+- **Result screen — three tiers, not two.** See the section below; this
+  replaced a binary "confident diagnosis or unclear photo" gate that was
+  measurably misleading for 41% of real field photos.
+- **Disease detail screen**: full symptoms/management/citation for one
+  class, reached by tapping a candidate in the "possible matches" tier.
+- **History screen**: past predictions, stored locally in Room, each row
+  carrying the same tier badge the result screen uses.
+- **About screen**: what the app does, its 38-class/14-crop coverage, that
+  it's offline, and its measured field accuracy.
+- **Photo tips screen**: concrete framing guidance — fill the frame with
+  one leaf, get close, keep it sharp, avoid harsh shadow/glare, avoid
+  overlapping leaves. Not filler: better framing measurably raises the
+  share of photos that land in the confident tier.
+- **Disclaimer**: shown once, on first launch, then lands on Home.
 - **No `INTERNET` permission anywhere** — check `AndroidManifest.xml`. This
   app cannot reach the network even if something in it tried to.
 
-## The model contract (read this before Day 9)
+## Why three tiers, not two
+
+The old app had a binary gate: above the OOD threshold it named a disease,
+below it said "Unclear photo, please retake." Measured on PlantDoc's
+236-image official test split, that single message was wrong roughly 90% of
+the time it fired: of the 31 images scoring below 0.50 confidence, 28 are
+**sharp** (Laplacian variance ≥ 100) and only 3 are actually blurry. The
+photo is usually fine — the plant simply isn't one of the 38 classes the
+model knows. The old gate also threw away the entire 0.50–0.95 confidence
+band (41.1% of field photos), where the correct answer is among the top
+three about three times in four — which is the direct cause of the
+complaint that clear leaf photos were being rejected.
+
+The result screen now reads `confidence_bands` from `model_metadata.json`
+(`confident_min` / `possible_min`) and shows one of three tiers —
+[ml/ConfidenceTier.kt](app/src/main/java/com/plantguard/app/ml/ConfidenceTier.kt)
+is the single place a probability becomes a tier, used for both fresh
+predictions and history rows read back later:
+
+1. **Confident** (`>= confident_min`): names one condition, styled in green.
+2. **Possible matches** (`possible_min`–`confident_min`): shows the top
+   three candidates with their confidences, headed "Possible matches — not
+   confident." Deliberately never worded as "most likely" — in this band
+   the single best guess is right only about 41% of the time, while the
+   correct answer is among the three about 75% of the time.
+3. **Not recognised** (`< possible_min`): "This plant may not be one of the
+   38 we cover..." — leads with the out-of-taxonomy explanation because
+   that's what's usually true, and mentions retaking only second. No blur
+   detector was built for this: log10(Laplacian variance) correlates with
+   model confidence at -0.013, effectively zero.
+
+A deliberate consequence: `PlantClassifier.classify()` now returns the top
+**three** candidates (`ClassCandidate`), not just the winner, and
+`HistoryEntry` stores all three (`topCandidatesJson`) so a saved result can
+be re-tiered correctly if the model's bands are ever re-tuned. `AppDatabase`
+went from schema v1 to v2 with a real `Migration(1, 2)`
+([data/history/Migrations.kt](app/src/main/java/com/plantguard/app/data/history/Migrations.kt))
+— existing history rows are preserved, not wiped, since `minSdk 24`'s
+SQLite predates `ALTER TABLE ... DROP COLUMN`.
+
+## The model contract
 
 Two bundled assets define the entire model contract — nothing about them is
 hardcoded in Kotlin:
 
-- `app/src/main/assets/model.tflite` — currently a **placeholder**: a tiny,
-  never-trained CNN, but a *real*, correctly-shaped, fully-integer-quantized
-  (uint8 input, uint8 output) `.tflite` file. Generated by
-  `scripts/generate_placeholder_tflite.py` (repo root) — see that script and
-  `src/export/to_tflite.py`'s docstring for the exact contract the real
-  export must match.
+- `app/src/main/assets/model.tflite` — the real fine-tuned export
+  (MobileNetV3Large, PlantDoc fine-tune), **float16-quantized (float32
+  input, float32 output)**. See `src/export/to_tflite.py`'s docstring for
+  the exact contract the export must match.
 - `app/src/main/assets/model_metadata.json` — `class_names` (copied verbatim
   from `src/config.py:PLANTVILLAGE_CLASS_NAMES`, same order), `image_size`,
-  and `confidence_threshold` (the OOD-rejection cutoff). The app reads class
-  order and the threshold from this file — **never** from Kotlin source.
+  `confidence_threshold` (the OOD-rejection cutoff the Python side tuned by
+  Youden's J), and `confidence_bands` (`confident_min` / `possible_min`,
+  which drive the three result tiers above). The app reads class order and
+  every boundary from this file — **never** from Kotlin source.
+  `ModelMetadata.kt` requires `confidence_bands` to be present and valid
+  (`0 < possible_min < confident_min < 1`) and throws otherwise, rather than
+  guessing a default.
 
-The app feeds the model raw uint8 RGB pixels (0-255, resized to
-`image_size`×`image_size`, no float math on the app side) and dequantizes
-the output itself using **that output tensor's own** scale/zero-point, read
-from the `.tflite` file at runtime — never a hardcoded formula. This is why
-a real INT8 export that matches `src/config.py`'s `TFLITE_CONFIG` will just
-work without any Kotlin changes.
+**Two things to know if you touch this file next:**
 
-### Swapping in the real model
+- **`confidence_bands` was hand-added to this asset.**
+  `src/export/metadata.py` does not currently emit it — check before
+  assuming a fresh Python-side export will carry it forward. If it's
+  missing, the app throws at launch (by design, per CLAUDE.md rule 1) rather
+  than silently mistiering every result.
+- **The `notes` field is stale.** It still describes the old untrained
+  uint8 placeholder even though `"placeholder": false` and
+  `"quantization": "float16"` describe the real deployed model. Also
+  Python-generated, also not fixed here.
 
-1. Overwrite `app/src/main/assets/model.tflite` with the real export.
-2. Overwrite `app/src/main/assets/model_metadata.json` with the real one
-   (same schema, `"placeholder": false`).
-3. Rebuild. That's it — no Kotlin changes required, *provided* the real
-   export's output class count matches `model_metadata.json`'s
-   `class_names` length (`PlantClassifier` asserts this loudly at startup
-   and crashes with a clear message if it doesn't, rather than silently
-   mis-mapping predictions to the wrong class names).
+**Why float16, not full-integer (INT8).** A real Kaggle export of the
+selected model (MobileNetV3Large) measured, on the same validation split the
+float model was scored on: INT8 macro-F1 0.5545 (a 0.4133 absolute drop from
+0.9678 — the known hard-swish/squeeze-excite INT8 quantization pathology for
+this architecture family, not something a larger representative dataset
+fixes), float16 macro-F1 0.9682 (effectively lossless). `src/export/
+to_tflite.py` still builds and reports INT8 as a comparison artifact
+(genuinely useful for the project report) but never deploys it —
+`PlantClassifier.kt` requires float32 input/output tensors and crashes
+loudly at startup on anything else, rather than silently producing garbage
+predictions from a mismatched model.tflite.
+
+The app feeds the model raw pixel values (0-255, resized to
+`image_size`×`image_size`, cast straight to float32 — no normalization or
+scaling on the app side) and reads the output directly as float32
+probabilities — no dequantization step, since float16 quantization only
+compresses weights and leaves the I/O tensors as plain float32.
+`PlantClassifier.build()` asserts both tensors are actually `FLOAT32` before
+use, so an INT8 `model.tflite` dropped in by mistake fails loudly at startup
+instead of silently mis-predicting.
+
+### Swapping in a future model
+
+1. Overwrite `app/src/main/assets/model.tflite` with the new (float16)
+   export.
+2. Overwrite `app/src/main/assets/model_metadata.json` with the new one
+   (same schema, including `confidence_bands` — see the caveat above).
+3. Rebuild. No Kotlin changes required, *provided* the export is
+   float16-quantized (float32 I/O), its output class count matches
+   `model_metadata.json`'s `class_names` length, and `confidence_bands` is
+   present and valid. `PlantClassifier` and `ModelMetadata` assert all of
+   this loudly at startup rather than silently mis-mapping predictions.
+
+## Field accuracy: `assets/field_metrics.json`
+
+The always-visible accuracy notice, the About screen, and each result
+tier's "how often is this right" line all read from
+`app/src/main/assets/field_metrics.json` — never a hardcoded number in
+Kotlin or in `strings.xml` (CLAUDE.md rule 5). Its `source` field records
+where the figures come from: **as of this redesign, they were
+hand-transcribed** from a Kaggle fine-tune run's reported PlantDoc results
+(236-image official test split, accuracy 0.5720, macro-F1 0.5444; per-band
+share/top-1/top-3 figures), because `artifacts/results.json` in this repo
+predates that run (commit `37211d6`, threshold 0.98, 2578-image split) and
+`src/export/` does not currently emit this file. Re-sync this asset by hand
+whenever the model is re-evaluated, until the Python export pipeline
+generates it directly.
 
 ## Disease content
 
@@ -96,9 +190,10 @@ PlantVillage, and others) where Indian-specific literature was thin.
 
 ## Versions used, and why
 
-Rather than guessing current library versions, these were confirmed live
-(WebSearch against Maven/Google's own docs, cross-checked against this
-machine's Gradle cache from a previously-proven build):
+This redesign added no new Gradle dependencies — `navigation-compose`,
+`material-icons-extended`, Compose's animation APIs, and `junit` were
+already declared and present in the local Gradle cache. The table below is
+unchanged from the original build:
 
 | Library | Version |
 |---|---|
@@ -153,18 +248,18 @@ above, take its suggestion — that's a loud, visible fix, not a silent one.
    enabled on the phone (Settings → About phone → tap "Build number" 7
    times → Developer options → USB debugging).
 6. Click **Run ▶** (or Shift+F10).
-7. On the phone: you'll see the one-time disclaimer, then a camera
-   permission prompt (grant it), then the camera screen. Take a photo or
-   use the gallery icon to pick one.
+7. On the phone: you'll see the one-time disclaimer, then Home. Tap
+   "Identify a Plant" for the camera permission prompt (grant it, or use
+   the gallery icon — both work without it).
 
-**What to expect right now**: the bundled model is an untrained placeholder,
-so predictions are meaningless — you'll most likely see "Unclear photo" most
-of the time, and even when a disease name does show up, its confidence is
-essentially random. That's correct and expected. What this run is actually
-verifying is the *pipeline*: camera/gallery → preprocessing → on-device
-inference → the confidence-threshold branch → History storage — all of
-which is real and already working end-to-end, on top of a model that just
-hasn't been trained yet.
+**What to expect now**: the bundled model is the real fine-tuned export, so
+predictions are meaningful. On a clear, well-framed leaf photo you should
+mostly land in the confident (green) tier; on a harder field photo, expect
+the amber "possible matches" tier with three candidates; on something
+outside the 38 covered classes (a hand, soil, a whole plant from far away)
+expect "Not recognised," not "Unclear photo." If you see "Unclear photo"
+anywhere, that string should no longer exist in this codebase — it was
+replaced entirely by the three tiers above.
 
 ## Command-line build (optional, what was used to verify this before commit)
 
@@ -172,8 +267,13 @@ From the `android/` folder:
 
 ```
 gradlew.bat assembleDebug
+gradlew.bat test
 ```
 
-This was run to confirm the project actually compiles before committing —
-you don't need to do this yourself, Android Studio's Run ▶ button does the
-same thing.
+The first confirms the project actually compiles; the second runs
+`ConfidenceTierTest`
+([app/src/test/java/.../ml/ConfidenceTierTest.kt](app/src/test/java/com/plantguard/app/ml/ConfidenceTierTest.kt)),
+a plain JVM unit test pinning the tier boundaries and the "malformed bands
+throw" behaviour — no device or emulator needed for either command. You
+don't need to run these yourself, Android Studio's Run ▶ button does the
+equivalent of the first.

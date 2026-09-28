@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The app's own window theme, replacing the framework
+    @android:style/Theme.Material.Light.NoActionBar the manifest used to point at.
+    Having an app-owned theme is what gives us somewhere to set the launch window's
+    background, so starting the app no longer flashes white before the cream
+    Compose UI appears.
+
+    The parent is still a framework theme: this app is pure Compose and depends on
+    neither AppCompat nor the Material Components XML library, so there is no
+    Theme.Material3 to inherit from here. Everything visual beyond the launch
+    window is decided in Kotlin by PlantGuardTheme.
+
+    Status-bar colour is not set here. MainActivity calls enableEdgeToEdge(), which
+    draws the app behind the system bars and manages their appearance; setting
+    android:statusBarColor as well would be ignored on newer Android and fight it on
+    older.
+-->
+<resources>
+    <style name="Theme.PlantGuard" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background_light</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

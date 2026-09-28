@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [HistoryEntry::class], version = 1, exportSchema = false)
+@Database(entities = [HistoryEntry::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun historyDao(): HistoryDao
@@ -21,11 +21,13 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "plantguard.db",
                 )
-                    // v1, no real migrations authored yet — acceptable to
-                    // wipe local history on a future schema bump rather than
-                    // crash. History is convenience data, not a source of
-                    // truth (unlike the training-side rules in CLAUDE.md).
-                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    // A real migration, and deliberately no
+                    // fallbackToDestructiveMigration: an upgrade must not delete
+                    // the user's saved predictions (see MIGRATION_1_2). Without a
+                    // fallback, a schema change with no matching migration now
+                    // crashes loudly on open instead of silently wiping the table
+                    // — which is the behaviour CLAUDE.md rule 1 asks for.
+                    .addMigrations(MIGRATION_1_2)
                     .build()
                     .also { instance = it }
             }

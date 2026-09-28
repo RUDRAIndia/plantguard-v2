@@ -1,4 +1,148 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    All user-facing copy lives here rather than in Kotlin literals.
+
+    The three tier messages below are the heart of this app's honesty, so they are
+    deliberately kept next to each other where their wording can be reviewed as a
+    set. Note what they do and do not claim:
+      - the confident tier names a disease;
+      - the possible tier says "possible matches", never "most likely", because the
+        first suggestion there is wrong more often than it is right;
+      - the unrecognised tier leads with "may not be one of the 38 we cover",
+        because that is what is usually true, and mentions retaking only second.
+
+    No accuracy figure appears in this file. Every number the app shows comes from
+    assets/field_metrics.json (CLAUDE.md rule 5) and is substituted into the
+    %1$d-style placeholders below at runtime.
+
+    No chemical, brand, dose or application schedule appears anywhere in this file
+    or in assets/disease_info.json (CLAUDE.md rule 8).
+-->
 <resources>
     <string name="app_name">PlantGuard</string>
+
+    <!-- Generic actions -->
+    <string name="action_back">Back</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_take_another">Take another photo</string>
+    <string name="action_try_again_closer">Try again, closer</string>
+    <string name="action_photo_tips">How to take a good photo</string>
+    <string name="action_open_camera">Open camera</string>
+    <string name="action_pick_from_gallery">Choose from gallery</string>
+    <string name="action_grant_camera">Allow camera access</string>
+    <string name="action_shutter">Take photo</string>
+    <string name="action_view_history">History</string>
+
+    <!-- Home -->
+    <string name="home_tagline">Offline leaf-disease help for 38 crop conditions</string>
+    <string name="home_card_identify_title">Identify a Plant</string>
+    <string name="home_card_identify_subtitle">Photograph a leaf and get a reading</string>
+    <string name="home_card_history_title">History</string>
+    <string name="home_card_history_subtitle">Everything you have checked before</string>
+    <string name="home_card_about_title">About</string>
+    <string name="home_card_about_subtitle">What this app can and cannot do</string>
+    <string name="home_card_tips_title">How to Take a Good Photo</string>
+    <string name="home_card_tips_subtitle">Better framing gives a clearer answer</string>
+
+    <!-- Camera -->
+    <string name="camera_title">Photograph a leaf</string>
+    <string name="camera_framing_hint">Fill the frame with one leaf</string>
+    <string name="camera_analyzing">Reading the leaf…</string>
+    <string name="camera_permission_rationale_title">Camera access needed</string>
+    <string name="camera_permission_rationale_body">PlantGuard uses the camera only to photograph a leaf for on-device analysis. Photos never leave your phone — the app has no internet access at all. You can also pick an existing photo from your gallery instead.</string>
+    <string name="camera_permission_denied_title">Camera access is turned off</string>
+    <string name="camera_permission_denied_body">You have permanently denied camera access. You can turn it back on in Android Settings → Apps → PlantGuard → Permissions, or carry on using photos from your gallery.</string>
+    <string name="camera_capture_failed">The camera could not save that photo. Please try again.</string>
+    <string name="camera_process_failed">Could not read that photo: %1$s</string>
+
+    <!-- Result: shared -->
+    <string name="result_title">Result</string>
+    <string name="result_section_symptoms">SYMPTOMS</string>
+    <string name="result_section_management">GENERAL MANAGEMENT</string>
+    <string name="result_source">Source: %1$s</string>
+    <string name="result_latency">Analysed on your phone in %1$d ms</string>
+    <string name="result_photo_description">The photo you took</string>
+    <string name="result_error_missing">This result is no longer saved on your phone.</string>
+    <string name="result_error_legacy_no_class">This older result did not record which condition it matched.</string>
+    <string name="disease_error_unknown_index">That condition could not be found. The app\'s model and its disease information may be out of sync.</string>
+
+    <!-- Result: tier badges -->
+    <string name="tier_badge_confident">Confident</string>
+    <string name="tier_badge_possible">Possible</string>
+    <string name="tier_badge_unrecognised">Not recognised</string>
+
+    <!-- Result tier 1: confident -->
+    <string name="result_confident_heading">Most likely diagnosis</string>
+    <string name="result_confident_reliability">On field photos this confident, the diagnosis is correct about %1$d%% of the time. Roughly %2$d%% of photos reach this level.</string>
+
+    <!-- Result tier 2: possible matches.
+         "Possible matches", never "most likely": in this band the top suggestion is
+         wrong more often than it is right, and the value is that the correct answer
+         is usually somewhere in the three. -->
+    <string name="result_possible_heading">Possible matches — not confident</string>
+    <string name="result_possible_explainer">The leaf does not clearly match one condition. Compare all three below rather than trusting the first.</string>
+    <string name="result_possible_reliability">On field photos like this, the correct answer is one of these three about %1$d%% of the time, but the first one alone is right only about %2$d%% of the time. Roughly %3$d%% of photos land here.</string>
+    <string name="result_possible_tap_hint">Tap any match to read its symptoms and management.</string>
+
+    <!-- Result tier 3: unrecognised.
+         Leads with out-of-taxonomy, because that is what is usually true: of the
+         test images below this confidence, 28 of 31 were sharp, not blurry. -->
+    <string name="result_unrecognised_heading">Not recognised</string>
+    <string name="result_unrecognised_body">This plant may not be one of the 38 we cover. If the photo was blurry or taken from far away, try again closer.</string>
+    <string name="result_unrecognised_reliability">About %1$d%% of field photos land here. PlantGuard covers 38 conditions across 14 crops — anything else is outside what it can name.</string>
+
+    <!-- Disease detail -->
+    <string name="disease_detail_title">Condition details</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_empty_title">Nothing checked yet</string>
+    <string name="history_empty_body">Photograph a leaf and it will appear here.</string>
+    <string name="history_unrecognised_row">Not recognised</string>
+    <string name="history_possible_row">%1$d possible matches</string>
+    <string name="history_row_meta">%1$d%% · %2$s</string>
+
+    <!-- About -->
+    <string name="about_title">About PlantGuard</string>
+    <string name="about_what_title">WHAT THIS APP DOES</string>
+    <string name="about_what_body">PlantGuard looks at a photograph of a single crop leaf and tells you which of 38 conditions across 14 crops it most resembles, along with how much confidence to place in that reading. It then offers general, non-chemical management practice and names the source it came from.</string>
+    <string name="about_offline_title">FULLY OFFLINE</string>
+    <string name="about_offline_body">Everything happens on your phone. The app holds no internet permission at all, so your photos cannot be uploaded anywhere, and it works with no signal.</string>
+    <string name="about_limits_title">WHERE IT IS WEAK</string>
+    <string name="about_limits_body">The model was trained mostly on laboratory photographs, taken against plain backgrounds under even light, and it is substantially less accurate on real photographs taken in a field. Measured on %3$d real field photographs it named the right condition about %1$d%% of the time (macro-F1 about %2$d%%). On laboratory images it scores far higher — treat that higher figure as the best case, not what to expect outdoors.</string>
+    <string name="about_tiers_title">THE THREE LEVELS OF ANSWER</string>
+    <string name="about_tiers_body">A confident answer names one condition and is right about %1$d%% of the time. A "possible matches" answer shows three candidates because the single best guess is right only about %2$d%% of the time, while the correct answer is among the three about %3$d%% of the time. "Not recognised" usually means the plant is not one of the 38 covered — not that your photo was bad.</string>
+    <string name="about_coverage_title">WHAT IT COVERS</string>
+    <string name="about_coverage_body">38 conditions across 14 crops: apple, blueberry, cherry, corn (maize), grape, orange, peach, bell pepper, potato, raspberry, soybean, squash, strawberry and tomato. Twelve of the 38 are the healthy state of a crop. Anything outside this list cannot be identified, however clear the photo.</string>
+    <string name="about_advice_title">ALWAYS CONFIRM</string>
+    <string name="about_advice_body">This app is a second opinion, never the decision. PlantGuard never recommends a chemical, a dose or a spraying schedule; for anything you intend to act on, confirm with your local KVK (Krishi Vigyan Kendra) or agricultural extension officer.</string>
+    <string name="about_metrics_source">Figures measured on: %1$s.</string>
+
+    <!-- Photo tips -->
+    <string name="tips_title">How to take a good photo</string>
+    <string name="tips_intro">Framing changes the answer more than anything else you control. A well-framed leaf is far more likely to get a confident reading than a distant or cluttered one.</string>
+    <string name="tips_single_title">One leaf, filling the frame</string>
+    <string name="tips_single_body">Pick the single most affected leaf and let it fill most of the picture. Several overlapping leaves give the model competing evidence and usually produce a hedged answer.</string>
+    <string name="tips_close_title">Get close</string>
+    <string name="tips_close_body">Come in to about a hand\'s width from the leaf. A photo of a whole plant or a whole row is too far away for the lesions to be visible.</string>
+    <string name="tips_focus_title">Keep it sharp</string>
+    <string name="tips_focus_body">Hold still and let the camera focus before you tap. Steady the leaf with your other hand if there is a breeze.</string>
+    <string name="tips_light_title">Even light, no glare</string>
+    <string name="tips_light_body">Open shade or an overcast sky is ideal. Hard midday sun throws strong shadows and shiny highlights across the leaf, both of which hide the very spots that matter.</string>
+    <string name="tips_background_title">Plain background where you can</string>
+    <string name="tips_background_body">Holding the leaf against your hand, a sleeve or bare soil separates it from the clutter behind it.</string>
+    <string name="tips_flat_title">Face the leaf squarely</string>
+    <string name="tips_flat_body">Photograph the leaf flat-on rather than edge-on, and include the affected area near the middle of the frame — the app analyses the centre square of your photo.</string>
+
+    <!-- Disclaimer (first run) -->
+    <string name="disclaimer_title">Before you start</string>
+    <string name="disclaimer_body_1">PlantGuard is a learning aid, not a diagnosis. It recognises 38 conditions across 14 crops from a photograph of a single leaf, entirely on your phone.</string>
+    <string name="disclaimer_body_2">It was trained mostly on laboratory photographs and is substantially less accurate on real photographs taken in a field. It will sometimes be confidently wrong, and it cannot recognise any plant outside those 38 conditions.</string>
+    <string name="disclaimer_body_3">Never make a crop-protection decision based on this app alone. Always confirm any diagnosis with your local KVK (Krishi Vigyan Kendra) or agricultural extension officer before taking action.</string>
+    <string name="disclaimer_accept">I understand, continue</string>
+
+    <!-- Shared notices -->
+    <string name="notice_accuracy_title">MODEL ACCURACY NOTICE</string>
+    <string name="notice_accuracy_body">This model was trained on laboratory photographs and is substantially less accurate on real field photographs. On %3$d real field photographs it was correct about %1$d%% of the time (macro-F1 about %2$d%%).</string>
+    <string name="notice_kvk">Always confirm with your local KVK (Krishi Vigyan Kendra) or agricultural extension officer before acting on this result.</string>
 </resources>

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "source": "PlantDoc official test split (236 images), MobileNetV3Large fine-tuned on PlantDoc field photographs, 2026-09-28. TRANSCRIBED BY HAND from that run's reported results -- NOT yet emitted by src/export/. artifacts/results.json in this repo predates the fine-tune (commit 37211d6, threshold 0.98) and does not contain these figures. Until src/export/ writes this file, treat it as the single auditable place these numbers live (CLAUDE.md rule 5) and re-sync it whenever the model is re-exported.",
+  "evaluated_on": "PlantDoc official test split",
+  "num_images": 236,
+  "field_accuracy": 0.5720,
+  "field_macro_f1": 0.5444,
+  "previous_field_accuracy": 0.2585,
+  "previous_field_macro_f1": 0.2350,
+  "bands": {
+    "confident": {
+      "share_of_photos": 0.458,
+      "top1_accuracy": 0.8148
+    },
+    "possible": {
+      "share_of_photos": 0.411,
+      "top1_accuracy": 0.4124,
+      "top3_accuracy": 0.7526
+    },
+    "unrecognised": {
+      "share_of_photos": 0.131
+    }
+  },
+  "blur_note": "Laplacian-variance blur detection was evaluated as a way to tell a blurry photo apart from an out-of-taxonomy plant, and rejected on evidence: the correlation between log10(Laplacian variance) and model confidence is -0.013, and median sharpness is near-identical across all three confidence bands. Of the 31 test images below 0.50 confidence, 28 are sharp (Laplacian variance >= 100) and only 3 are blurry. The app therefore ships no blur detector; the fix was wording and tiering."
+}

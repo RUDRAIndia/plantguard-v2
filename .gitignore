@@ -46,6 +46,9 @@ android/**/.gradle/
 android/local.properties
 *.apk
 *.aab
+# Locally built release output (APK is already covered by *.apk above, but
+# its sibling output-metadata.json and baselineProfiles/ are not).
+android/app/release/
 
 # OS / editor
 .DS_Store
