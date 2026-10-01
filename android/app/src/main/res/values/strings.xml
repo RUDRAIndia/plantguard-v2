@@ -141,8 +141,13 @@
     <string name="disclaimer_body_3">Never make a crop-protection decision based on this app alone. Always confirm any diagnosis with your local KVK (Krishi Vigyan Kendra) or agricultural extension officer before taking action.</string>
     <string name="disclaimer_accept">I understand, continue</string>
 
+    <string name="history_clear_all">Clear all history</string>
+    <string name="history_clear_confirm_title">Delete all saved scans?</string>
+    <string name="history_clear_confirm_body">This will permanently remove all %1$d saved scans and their photographs from this device. It cannot be undone.</string>
+    <string name="history_clear_confirm_action">Delete all</string>
+    <string name="history_clear_cancel">Cancel</string>
     <!-- Shared notices -->
     <string name="notice_accuracy_title">MODEL ACCURACY NOTICE</string>
-    <string name="notice_accuracy_body">This model was trained on laboratory photographs and is substantially less accurate on real field photographs. On %3$d real field photographs it was correct about %1$d%% of the time (macro-F1 about %2$d%%).</string>
+    <string name="notice_accuracy_body">%4$d%% accuracy — when this app is confident, the correct disease is among its top 3 results %4$d%% of the time. Measured on %3$d real field photographs. Its single best guess alone is right about %1$d%% of the time, so always check the alternatives.</string>
     <string name="notice_kvk">Always confirm with your local KVK (Krishi Vigyan Kendra) or agricultural extension officer before acting on this result.</string>
 </resources>

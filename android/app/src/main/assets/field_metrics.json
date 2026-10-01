@@ -8,9 +8,10 @@
   "previous_field_accuracy": 0.2585,
   "previous_field_macro_f1": 0.2350,
   "bands": {
-    "confident": {
+    "confident":{
       "share_of_photos": 0.458,
-      "top1_accuracy": 0.8148
+      "top1_accuracy": 0.8148,
+      "top3_accuracy": 0.9444
     },
     "possible": {
       "share_of_photos": 0.411,

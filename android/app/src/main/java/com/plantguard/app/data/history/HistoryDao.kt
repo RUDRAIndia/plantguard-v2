@@ -17,4 +17,12 @@ interface HistoryDao {
 
     @Query("SELECT * FROM history_entries WHERE id = :id")
     suspend fun getById(id: Long): HistoryEntry?
+
+    /** Removes one saved scan. */
+    @Query("DELETE FROM history_entries WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    /** Removes every saved scan. Irreversible — the UI must confirm first. */
+    @Query("DELETE FROM history_entries")
+    suspend fun deleteAll()
 }

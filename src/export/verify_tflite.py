@@ -56,14 +56,22 @@ def load_interpreter(tflite_source) -> tf.lite.Interpreter:
     return interpreter
 
 
+def io_dtypes(interpreter: tf.lite.Interpreter) -> tuple:
+    """Returns (input_dtype, output_dtype) for `interpreter`'s single input/
+    output tensor — the one place both this module's own dtype assertion
+    and src/export/to_tflite.py's conversion/deploy-time checks read from,
+    so they can never silently disagree on how a dtype is determined.
+    """
+    return interpreter.get_input_details()[0]["dtype"], interpreter.get_output_details()[0]["dtype"]
+
+
 def _assert_input_output_dtype(interpreter: tf.lite.Interpreter, expected_dtype) -> None:
-    input_detail = interpreter.get_input_details()[0]
-    output_detail = interpreter.get_output_details()[0]
-    if input_detail["dtype"] != expected_dtype or output_detail["dtype"] != expected_dtype:
+    input_dtype, output_dtype = io_dtypes(interpreter)
+    if input_dtype != expected_dtype or output_dtype != expected_dtype:
         raise RuntimeError(
             f"Expected {expected_dtype} input AND output tensors, got "
-            f"input={input_detail['dtype']} output={output_detail['dtype']}. The converter "
-            "did not produce the expected I/O contract for this quantization scheme."
+            f"input={input_dtype} output={output_dtype}. The converter did not produce the "
+            "expected I/O contract for this quantization scheme."
         )
 
 
@@ -215,3 +223,44 @@ def verify_float16(tflite_path: Path, val_relative_paths: list, model_name: str,
         quantization="float16",
         expected_dtype=np.float32,
     )
+
+
+_DTYPE_NAME_TO_NUMPY = {"uint8": np.uint8, "float32": np.float32}
+
+
+def assert_io_contract(tflite_bytes: bytes, expected_dtype, num_classes: int, *, label: str) -> None:
+    """Fails fast, before spending minutes on a full validation pass against
+    a possibly-malformed interpreter (CLAUDE.md rule 1). Used by
+    src/export/to_tflite.py right after each conversion — reuses
+    _assert_input_output_dtype (the single place a tensor's dtype is
+    determined from) and adds the output-shape check every export format
+    needs.
+    """
+    interpreter = load_interpreter(tflite_bytes)
+    _assert_input_output_dtype(interpreter, expected_dtype)
+    output_shape = tuple(interpreter.get_output_details()[0]["shape"])
+    if output_shape != (1, num_classes):
+        raise RuntimeError(
+            f"{label} export output shape {output_shape} != (1, {num_classes}) -- class_names in "
+            "model_metadata.json would silently misalign with the model's output indices."
+        )
+
+
+def assert_deployable_for_android(tflite_bytes: bytes) -> None:
+    """Refuses to deploy a candidate whose I/O dtype doesn't match what
+    android/app/src/main/java/.../PlantClassifier.kt currently requires
+    (config.ANDROID_TFLITE_IO_DTYPE). This is exactly the mismatch that
+    would produce silent garbage predictions on-device rather than a build/
+    startup crash, so it is caught here — before anything is copied into
+    android/assets/ — never left to be discovered on a phone.
+    """
+    expected_dtype = _DTYPE_NAME_TO_NUMPY[config.ANDROID_TFLITE_IO_DTYPE]
+    interpreter = load_interpreter(tflite_bytes)
+    input_dtype, output_dtype = io_dtypes(interpreter)
+    if input_dtype != expected_dtype or output_dtype != expected_dtype:
+        raise RuntimeError(
+            f"Refusing to deploy: this candidate's input/output tensors are ({input_dtype}, "
+            f"{output_dtype}), but android/app/src/main/java/.../PlantClassifier.kt requires "
+            f"{config.ANDROID_TFLITE_IO_DTYPE} for both (config.ANDROID_TFLITE_IO_DTYPE). Deploying "
+            "this would silently produce garbage predictions on-device, not a crash."
+        )

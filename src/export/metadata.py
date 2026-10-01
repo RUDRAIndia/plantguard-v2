@@ -13,6 +13,27 @@ from tensorflow import keras
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src import config  # noqa: E402
 
+# Describes the ACTUAL .tflite input tensor's dtype/semantics for each
+# quantization scheme this project can export — read by the Android app's
+# human maintainers (Kotlin never parses this field), so it must always
+# match reality, not just the deployed default. Preprocessing (the
+# backbone's normalization) is baked into the exported graph either way
+# (src/export/to_tflite.py's _wrap_with_preprocessing) — the app must never
+# normalize or scale anything itself, only decode/resize/cast pixels.
+_INPUT_FORMAT_BY_QUANTIZATION = {
+    "float16": (
+        "float32, RGB, HWC, raw 0-255 pixel values (NOT normalized to [0,1] or [-1,1]) -- the "
+        "exported graph's raw_pixels_0_255 input applies the backbone's preprocess_input "
+        "internally, so the app must not normalize or scale anything itself, just cast decoded "
+        "pixel bytes to float32 as-is"
+    ),
+    "int8": (
+        "uint8, RGB, HWC, raw 0-255 pixel values, no client-side normalization (the "
+        ".tflite's own input-tensor quantization already absorbs whatever float "
+        "preprocessing was used at training time)"
+    ),
+}
+
 
 def assert_class_names_integrity(class_names, model: keras.Model) -> None:
     """Raises loudly (never a bare assert, which strips under python -O) on
@@ -51,6 +72,13 @@ def build_metadata(
     asserts class-list integrity before returning.
     """
     assert_class_names_integrity(class_names, trained_model)
+    if quantization not in _INPUT_FORMAT_BY_QUANTIZATION:
+        raise ValueError(
+            f"No input_format description for quantization='{quantization}' -- known schemes: "
+            f"{sorted(_INPUT_FORMAT_BY_QUANTIZATION)}. Add one to metadata.py's "
+            "_INPUT_FORMAT_BY_QUANTIZATION rather than guess; the app's maintainers read this "
+            "field to know what dtype/range the app must feed the model."
+        )
 
     module_path, function_name = config.PREPROCESSING_ENTRYPOINTS[model_name]
     export_commit = config.get_git_commit_hash()
@@ -61,11 +89,7 @@ def build_metadata(
         "placeholder": False,
         "architecture": model_name,
         "image_size": config.IMAGE_SIZE,
-        "input_format": (
-            "uint8, RGB, HWC, raw 0-255 pixel values, no client-side normalization (the "
-            ".tflite's own input-tensor quantization already absorbs whatever float "
-            "preprocessing was used at training time)"
-        ),
+        "input_format": _INPUT_FORMAT_BY_QUANTIZATION[quantization],
         "preprocessing_entrypoint": f"{module_path}.{function_name}",
         "quantization": quantization,
         "confidence_threshold": results["ood_rejection"]["chosen_threshold"],

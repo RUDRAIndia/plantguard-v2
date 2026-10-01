@@ -70,6 +70,7 @@ fun AccuracyNotice(modifier: Modifier = Modifier) {
                         (metrics.fieldAccuracy * 100).roundToInt(),
                         (metrics.fieldMacroF1 * 100).roundToInt(),
                         metrics.numImages,
+                        ((metrics.confident.top3Accuracy ?: 0f) * 100).roundToInt(),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                 )

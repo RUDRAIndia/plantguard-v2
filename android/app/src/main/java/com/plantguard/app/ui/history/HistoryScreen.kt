@@ -14,8 +14,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.HistoryToggleOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +27,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +60,7 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(),
 ) {
     val rows by viewModel.rows.collectAsStateWithLifecycle()
+    var showClearConfirm by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -75,8 +83,48 @@ fun HistoryScreen(
                 items(rows, key = { it.id }) { row ->
                     HistoryRowCard(row = row, onClick = { onOpenResult(row.id) })
                 }
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showClearConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteSweep,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.history_clear_all))
+                    }
+                }
             }
         }
+    }
+
+    // Deleting every saved scan cannot be undone, so it is always confirmed.
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            icon = {
+                Icon(imageVector = Icons.Filled.DeleteSweep, contentDescription = null)
+            },
+            title = { Text(stringResource(R.string.history_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.history_clear_confirm_body, rows.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteAll()
+                    showClearConfirm = false
+                }) {
+                    Text(stringResource(R.string.history_clear_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text(stringResource(R.string.history_clear_cancel))
+                }
+            },
+        )
     }
 }
 

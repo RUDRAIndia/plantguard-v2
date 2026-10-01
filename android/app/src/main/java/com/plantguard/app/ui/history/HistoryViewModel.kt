@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * One row of the history list, already resolved for display.
@@ -48,6 +50,33 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
         )
+
+     /**
+     * Deletes one saved scan, and its captured image file with it.
+     *
+     * The row and the file are two halves of one record: removing only the row
+     * would leave the image orphaned on disk, growing storage the user cannot
+     * see or clear. The file is deleted first, because a failure to delete it is
+     * recoverable (a stray file) whereas a row pointing at a missing file is not.
+     */
+    fun deleteOne(id: Long) {
+        viewModelScope.launch {
+            historyDao.getById(id)?.let { entry ->
+                runCatching { File(entry.imagePath).delete() }
+            }
+            historyDao.deleteById(id)
+        }
+    }
+
+    /** Clears all saved scans and their image files. The UI must confirm first. */
+    fun deleteAll() {
+        viewModelScope.launch {
+            rows.value.forEach { row ->
+                runCatching { File(row.imagePath).delete() }
+            }
+            historyDao.deleteAll()
+        }
+    }
 
     private fun toRow(entry: HistoryEntry): HistoryRow {
         // ModelMetadata.getInstance, not PlantClassifier.getInstance: this list

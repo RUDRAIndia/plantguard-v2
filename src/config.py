@@ -642,14 +642,34 @@ assert SMOKE_NUM_CLASSES * (SMOKE_TRAIN_IMAGES_PER_CLASS + SMOKE_VAL_IMAGES_PER_
 # ---------------------------------------------------------------------------
 # TFLite export
 # ---------------------------------------------------------------------------
+# "quantization"/"input_dtype"/"output_dtype" describe the DEPLOYED format —
+# float16 (weight-only quantization, float32 I/O), not INT8. A real Kaggle
+# export run found INT8 quantization collapses MobileNetV3Large's validation
+# macro-F1 from 0.9678 to 0.5545 (a 0.41 absolute drop) — the known
+# hard-swish/squeeze-excite INT8 quantization pathology for this
+# architecture family, not something a larger representative_dataset_size
+# fixes. float16 measured 0.9682 on the same split (effectively lossless).
+# src/export/to_tflite.py still builds and reports INT8 as a comparison
+# artifact (never deployed) alongside float16 — see that module's docstring.
 TFLITE_CONFIG = {
-    "quantization": "int8",
+    "quantization": "float16",
     "optimizations": "DEFAULT",  # maps to tf.lite.Optimize.DEFAULT
     "representative_dataset_size": SMOKE_MAX_IMAGES,
-    "input_dtype": "uint8",
-    "output_dtype": "uint8",
+    "input_dtype": "float32",
+    "output_dtype": "float32",
 }
 TFLITE_OUTPUT_DIR = ARTIFACTS_DIR / "tflite"
+
+# The tensor dtype android/app/src/main/java/.../PlantClassifier.kt requires
+# for BOTH the .tflite input and output tensors — float32, matching the
+# float16-quantized (weight-only, float32 I/O) export this project deploys.
+# Named here, not just implied by "whichever format src/export/to_tflite.py
+# currently deploys," so its deploy-time check and PlantClassifier.kt's own
+# startup assertion are provably checking the SAME contract, and a test can
+# assert they agree without parsing Kotlin. A silent mismatch here is the
+# exact failure mode that produces garbage predictions on-device instead of
+# a crash — see src/export/to_tflite.py's _assert_deployable_for_android.
+ANDROID_TFLITE_IO_DTYPE = "float32"
 
 # Maximum acceptable validation macro-F1 drop between the float Keras model
 # and the INT8-quantized .tflite (both measured on the same validation

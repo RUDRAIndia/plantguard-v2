@@ -6,6 +6,11 @@ them, since the conversion mechanics (graph-wrapping for quantization,
 uint8-vs-float32 I/O) are exactly what's risky here. Never asserts on
 prediction *quality* (the model is untrained) — only on shape, dtype, and
 control-flow correctness (deploy vs. raise, staged vs. untouched).
+
+float16 is the deployed format (INT8 quantization was found, on a real
+Kaggle run, to collapse MobileNetV3Large's macro-F1 by 0.41 absolute — the
+known hard-swish/squeeze-excite pathology); INT8 is always still built and
+reported as a comparison artifact, never auto-deployed.
 """
 
 import json
@@ -125,7 +130,7 @@ def test_convert_int8_produces_uint8_io_contract(export_env, synthetic_dataset):
     )
 
     tflite_bytes = to_tflite._convert_int8(export_model, to_tflite._representative_dataset(representative_paths))
-    to_tflite._assert_uint8_io_contract(tflite_bytes, config.NUM_CLASSES)  # must not raise
+    verify_tflite.assert_io_contract(tflite_bytes, np.uint8, config.NUM_CLASSES, label="INT8")  # must not raise
 
     interpreter = verify_tflite.load_interpreter(tflite_bytes)
     input_detail = interpreter.get_input_details()[0]
@@ -139,6 +144,7 @@ def test_convert_float16_keeps_float32_io(export_env):
     export_model = to_tflite._wrap_with_preprocessing(export_env["model"], export_env["model_name"])
 
     tflite_bytes = to_tflite._convert_float16(export_model)
+    verify_tflite.assert_io_contract(tflite_bytes, np.float32, config.NUM_CLASSES, label="float16")  # must not raise
 
     interpreter = verify_tflite.load_interpreter(tflite_bytes)
     input_detail = interpreter.get_input_details()[0]
@@ -159,14 +165,14 @@ def test_assert_class_names_integrity_fires_on_wrong_output_dimension():
         metadata.assert_class_names_integrity(config.PLANTVILLAGE_CLASS_NAMES, wrong_model)
 
 
-def test_export_deploys_when_drop_within_tolerance(fresh_export_targets, monkeypatch):
-    monkeypatch.setattr(config, "TFLITE_MAX_MACRO_F1_DROP", 1.0)  # guarantee within tolerance
+def test_export_deploys_float16_and_never_auto_deploys_int8(fresh_export_targets, monkeypatch):
+    monkeypatch.setattr(config, "TFLITE_MAX_MACRO_F1_DROP", 1.0)  # guarantee float16 within tolerance
 
     result = to_tflite.export()
 
     assert result["deployment_outcome"] == "deployed"
-    assert result["int8"]["deployed_to_android"] is True
-    assert result["float16"] is None
+    assert result["float16"]["deployed_to_android"] is True
+    assert result["int8"]["deployed_to_android"] is False  # built + reported, never deployed
 
     deployed_bytes = fresh_export_targets["android_tflite_path"].read_bytes()
     assert deployed_bytes != fresh_export_targets["placeholder_tflite_bytes"]
@@ -177,11 +183,12 @@ def test_export_deploys_when_drop_within_tolerance(fresh_export_targets, monkeyp
     assert written_metadata["confidence_threshold"] == 0.98
     assert written_metadata["calibration_temperature"] == 1.36
     assert written_metadata["architecture"] == "MobileNetV2"
-    assert written_metadata["quantization"] == "int8"
+    assert written_metadata["quantization"] == "float16"
+    assert "float32" in written_metadata["input_format"]
     assert len(written_metadata["git_commit_hash"]) == 40
 
 
-def test_export_raises_and_leaves_placeholder_when_drop_exceeds_tolerance(fresh_export_targets, monkeypatch):
+def test_export_raises_and_leaves_placeholder_when_float16_drop_exceeds_tolerance(fresh_export_targets, monkeypatch):
     monkeypatch.setattr(config, "TFLITE_MAX_MACRO_F1_DROP", -1.0)  # guarantee out of tolerance
 
     with pytest.raises(RuntimeError, match="macro-F1 drop"):
@@ -198,10 +205,10 @@ def test_export_raises_and_leaves_placeholder_when_drop_exceeds_tolerance(fresh_
     results = json.loads(fresh_export_targets["results_json_path"].read_text(encoding="utf-8"))
     export_section = results["export"]
     assert export_section["deployment_outcome"] == "raised_for_human_decision"
-    assert export_section["float16"] is not None
-    assert export_section["int8"]["within_tolerance"] is False
-    assert export_section["int8"]["deployed_to_android"] is False
+    assert export_section["float16"]["within_tolerance"] is False
     assert export_section["float16"]["deployed_to_android"] is False
+    assert export_section["int8"]["deployed_to_android"] is False
+    assert isinstance(export_section["int8"]["val_macro_f1_quantized"], float)  # still measured + recorded
 
 
 def test_export_results_json_round_trips_full_export_schema(fresh_export_targets, monkeypatch):
@@ -218,11 +225,12 @@ def test_export_results_json_round_trips_full_export_schema(fresh_export_targets
     assert export_section["representative_dataset"]["source_split"] == "train"
     assert export_section["representative_dataset"]["seed"] == config.SEED
 
-    int8 = export_section["int8"]
-    assert int8["file_size_mb"] > 0
-    assert 0.0 <= int8["val_macro_f1_quantized"] <= 1.0
-    assert int8["latency_ms"]["num_measured_runs"] == config.TFLITE_LATENCY_MEASURED_RUNS
-    assert int8["latency_ms"]["min_ms"] <= int8["latency_ms"]["mean_ms"] <= int8["latency_ms"]["max_ms"]
+    for quantization in ("float16", "int8"):
+        candidate = export_section[quantization]
+        assert candidate["file_size_mb"] > 0
+        assert 0.0 <= candidate["val_macro_f1_quantized"] <= 1.0
+        assert candidate["latency_ms"]["num_measured_runs"] == config.TFLITE_LATENCY_MEASURED_RUNS
+        assert candidate["latency_ms"]["min_ms"] <= candidate["latency_ms"]["mean_ms"] <= candidate["latency_ms"]["max_ms"]
 
     # Other results.json keys the fixture seeded must still be present/untouched.
     assert results["selected_model"] == "MobileNetV2"
@@ -233,3 +241,37 @@ def test_export_raises_before_deploy_when_results_json_missing(tmp_path, monkeyp
     monkeypatch.setattr(config, "RESULTS_JSON_PATH", tmp_path / "does_not_exist.json")
     with pytest.raises(FileNotFoundError):
         to_tflite.export()
+
+
+def test_deployed_tflite_dtype_matches_what_plantclassifier_expects(fresh_export_targets, monkeypatch):
+    """The exact regression this suite must catch rather than a phone user
+    noticing odd results: if a future change ever deployed a candidate
+    whose I/O dtype doesn't match what android/app/src/main/java/.../
+    PlantClassifier.kt requires (config.ANDROID_TFLITE_IO_DTYPE), this
+    fails here instead of silently shipping garbage predictions.
+    """
+    monkeypatch.setattr(config, "TFLITE_MAX_MACRO_F1_DROP", 1.0)
+
+    to_tflite.export()
+
+    interpreter = verify_tflite.load_interpreter(fresh_export_targets["android_tflite_path"])
+    input_dtype, output_dtype = verify_tflite.io_dtypes(interpreter)
+    expected_dtype = {"uint8": np.uint8, "float32": np.float32}[config.ANDROID_TFLITE_IO_DTYPE]
+    assert input_dtype == expected_dtype
+    assert output_dtype == expected_dtype
+
+
+def test_deploy_refuses_a_uint8_candidate_given_current_android_contract(export_env, fresh_export_targets):
+    """Direct unit-level proof that INT8 (uint8 I/O) is structurally
+    undeployable under the current config.ANDROID_TFLITE_IO_DTYPE=float32
+    contract -- independent of tolerance, this must refuse before ever
+    touching android/assets/.
+    """
+    export_model = to_tflite._wrap_with_preprocessing(export_env["model"], export_env["model_name"])
+    int8_bytes = to_tflite._convert_int8(export_model, to_tflite._representative_dataset(["dummy"]))
+    int8_path = to_tflite._write_staged_artifact(int8_bytes, "unit_test_int8.tflite")
+
+    with pytest.raises(RuntimeError, match="Refusing to deploy"):
+        to_tflite._deploy_to_android(int8_path, {"placeholder": False})
+
+    assert fresh_export_targets["android_tflite_path"].read_bytes() == fresh_export_targets["placeholder_tflite_bytes"]
