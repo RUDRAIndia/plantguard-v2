@@ -1,0 +1,1347 @@
+{
+  "stage": "finetuned_on_plantdoc_train",
+  "git_commit_hash": "9138f32bf6ba9100f530f326c1fa5ba2e99c3334",
+  "selected_model": "MobileNetV3Large",
+  "weights": "finetuned_plantdoc.weights.h5",
+  "test_evaluation": {
+    "num_test_samples": 8146,
+    "accuracy": 0.9823226123250676,
+    "macro_f1": 0.9791077071534405,
+    "weighted_f1": 0.9823224008621628,
+    "per_class_metrics": [
+      {
+        "class_name": "Apple___Apple_scab",
+        "precision": 0.93,
+        "recall": 0.9893617021276596,
+        "f1": 0.9587628865979382,
+        "support": 94
+      },
+      {
+        "class_name": "Apple___Black_rot",
+        "precision": 0.9893617021276596,
+        "recall": 1.0,
+        "f1": 0.9946524064171123,
+        "support": 93
+      },
+      {
+        "class_name": "Apple___Cedar_apple_rust",
+        "precision": 0.9761904761904762,
+        "recall": 1.0,
+        "f1": 0.9879518072289156,
+        "support": 41
+      },
+      {
+        "class_name": "Apple___healthy",
+        "precision": 0.9958847736625515,
+        "recall": 0.979757085020243,
+        "f1": 0.9877551020408163,
+        "support": 247
+      },
+      {
+        "class_name": "Blueberry___healthy",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 225
+      },
+      {
+        "class_name": "Cherry_(including_sour)___Powdery_mildew",
+        "precision": 1.0,
+        "recall": 0.9936708860759493,
+        "f1": 0.9968253968253968,
+        "support": 158
+      },
+      {
+        "class_name": "Cherry_(including_sour)___healthy",
+        "precision": 0.9922480620155039,
+        "recall": 1.0,
+        "f1": 0.9961089494163424,
+        "support": 128
+      },
+      {
+        "class_name": "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+        "precision": 0.8947368421052632,
+        "recall": 0.8831168831168831,
+        "f1": 0.8888888888888888,
+        "support": 77
+      },
+      {
+        "class_name": "Corn_(maize)___Common_rust_",
+        "precision": 0.9777777777777777,
+        "recall": 0.9832402234636871,
+        "f1": 0.9805013927576601,
+        "support": 179
+      },
+      {
+        "class_name": "Corn_(maize)___Northern_Leaf_Blight",
+        "precision": 0.9266666666666666,
+        "recall": 0.9391891891891891,
+        "f1": 0.9328859060402684,
+        "support": 148
+      },
+      {
+        "class_name": "Corn_(maize)___healthy",
+        "precision": 1.0,
+        "recall": 0.9942528735632183,
+        "f1": 0.9971181556195965,
+        "support": 174
+      },
+      {
+        "class_name": "Grape___Black_rot",
+        "precision": 0.9779005524861878,
+        "recall": 1.0,
+        "f1": 0.9888268156424581,
+        "support": 177
+      },
+      {
+        "class_name": "Grape___Esca_(Black_Measles)",
+        "precision": 1.0,
+        "recall": 0.9806763285024155,
+        "f1": 0.9902439024390244,
+        "support": 207
+      },
+      {
+        "class_name": "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 161
+      },
+      {
+        "class_name": "Grape___healthy",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 63
+      },
+      {
+        "class_name": "Orange___Haunglongbing_(Citrus_greening)",
+        "precision": 0.9987893462469734,
+        "recall": 0.9987893462469734,
+        "f1": 0.9987893462469734,
+        "support": 826
+      },
+      {
+        "class_name": "Peach___Bacterial_spot",
+        "precision": 0.9971098265895953,
+        "recall": 1.0,
+        "f1": 0.9985528219971056,
+        "support": 345
+      },
+      {
+        "class_name": "Peach___healthy",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 54
+      },
+      {
+        "class_name": "Pepper,_bell___Bacterial_spot",
+        "precision": 0.9615384615384616,
+        "recall": 1.0,
+        "f1": 0.9803921568627451,
+        "support": 150
+      },
+      {
+        "class_name": "Pepper,_bell___healthy",
+        "precision": 0.9954337899543378,
+        "recall": 0.9819819819819819,
+        "f1": 0.9886621315192744,
+        "support": 222
+      },
+      {
+        "class_name": "Potato___Early_blight",
+        "precision": 0.9554140127388535,
+        "recall": 1.0,
+        "f1": 0.9771986970684039,
+        "support": 150
+      },
+      {
+        "class_name": "Potato___Late_blight",
+        "precision": 0.9671052631578947,
+        "recall": 0.98,
+        "f1": 0.9735099337748344,
+        "support": 150
+      },
+      {
+        "class_name": "Potato___healthy",
+        "precision": 1.0,
+        "recall": 0.9565217391304348,
+        "f1": 0.9777777777777777,
+        "support": 23
+      },
+      {
+        "class_name": "Raspberry___healthy",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 56
+      },
+      {
+        "class_name": "Soybean___healthy",
+        "precision": 0.9947848761408083,
+        "recall": 0.9986910994764397,
+        "f1": 0.9967341606792945,
+        "support": 764
+      },
+      {
+        "class_name": "Squash___Powdery_mildew",
+        "precision": 0.9892086330935251,
+        "recall": 1.0,
+        "f1": 0.9945750452079566,
+        "support": 275
+      },
+      {
+        "class_name": "Strawberry___Leaf_scorch",
+        "precision": 1.0,
+        "recall": 0.9879518072289156,
+        "f1": 0.9939393939393939,
+        "support": 166
+      },
+      {
+        "class_name": "Strawberry___healthy",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 68
+      },
+      {
+        "class_name": "Tomato___Bacterial_spot",
+        "precision": 0.9571865443425076,
+        "recall": 0.9811912225705329,
+        "f1": 0.9690402476780186,
+        "support": 319
+      },
+      {
+        "class_name": "Tomato___Early_blight",
+        "precision": 0.9849624060150376,
+        "recall": 0.8733333333333333,
+        "f1": 0.9257950530035336,
+        "support": 150
+      },
+      {
+        "class_name": "Tomato___Late_blight",
+        "precision": 0.9710144927536232,
+        "recall": 0.9370629370629371,
+        "f1": 0.9537366548042705,
+        "support": 286
+      },
+      {
+        "class_name": "Tomato___Leaf_Mold",
+        "precision": 0.9794520547945206,
+        "recall": 1.0,
+        "f1": 0.9896193771626297,
+        "support": 143
+      },
+      {
+        "class_name": "Tomato___Septoria_leaf_spot",
+        "precision": 0.9695817490494296,
+        "recall": 0.9586466165413534,
+        "f1": 0.9640831758034026,
+        "support": 266
+      },
+      {
+        "class_name": "Tomato___Spider_mites Two-spotted_spider_mite",
+        "precision": 0.9955156950672646,
+        "recall": 0.8844621513944223,
+        "f1": 0.9367088607594937,
+        "support": 251
+      },
+      {
+        "class_name": "Tomato___Target_Spot",
+        "precision": 0.8518518518518519,
+        "recall": 0.981042654028436,
+        "f1": 0.9118942731277533,
+        "support": 211
+      },
+      {
+        "class_name": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+        "precision": 0.9974842767295597,
+        "recall": 0.986318407960199,
+        "f1": 0.991869918699187,
+        "support": 804
+      },
+      {
+        "class_name": "Tomato___Tomato_mosaic_virus",
+        "precision": 1.0,
+        "recall": 0.9821428571428571,
+        "f1": 0.990990990990991,
+        "support": 56
+      },
+      {
+        "class_name": "Tomato___healthy",
+        "precision": 0.9835390946502057,
+        "recall": 1.0,
+        "f1": 0.991701244813278,
+        "support": 239
+      }
+    ],
+    "worst_class_recall": {
+      "class_name": "Tomato___Early_blight",
+      "recall": 0.8733333333333333
+    },
+    "top_confused_pairs": [
+      {
+        "true_class": "Tomato___Spider_mites Two-spotted_spider_mite",
+        "predicted_class": "Tomato___Target_Spot",
+        "count": 28,
+        "rate_of_true_class": 0.1116
+      },
+      {
+        "true_class": "Corn_(maize)___Northern_Leaf_Blight",
+        "predicted_class": "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+        "count": 8,
+        "rate_of_true_class": 0.0541
+      },
+      {
+        "true_class": "Tomato___Early_blight",
+        "predicted_class": "Tomato___Target_Spot",
+        "count": 8,
+        "rate_of_true_class": 0.0533
+      },
+      {
+        "true_class": "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+        "predicted_class": "Corn_(maize)___Northern_Leaf_Blight",
+        "count": 7,
+        "rate_of_true_class": 0.0909
+      },
+      {
+        "true_class": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+        "predicted_class": "Tomato___Bacterial_spot",
+        "count": 7,
+        "rate_of_true_class": 0.0087
+      },
+      {
+        "true_class": "Tomato___Early_blight",
+        "predicted_class": "Tomato___Late_blight",
+        "count": 5,
+        "rate_of_true_class": 0.0333
+      },
+      {
+        "true_class": "Tomato___Early_blight",
+        "predicted_class": "Tomato___Septoria_leaf_spot",
+        "count": 4,
+        "rate_of_true_class": 0.0267
+      },
+      {
+        "true_class": "Tomato___Late_blight",
+        "predicted_class": "Potato___Late_blight",
+        "count": 4,
+        "rate_of_true_class": 0.014
+      },
+      {
+        "true_class": "Tomato___Septoria_leaf_spot",
+        "predicted_class": "Tomato___Bacterial_spot",
+        "count": 4,
+        "rate_of_true_class": 0.015
+      },
+      {
+        "true_class": "Corn_(maize)___Common_rust_",
+        "predicted_class": "Corn_(maize)___Northern_Leaf_Blight",
+        "count": 3,
+        "rate_of_true_class": 0.0168
+      }
+    ],
+    "confusion_matrix_figure": "/kaggle/working/pg/artifacts/figures/confusion_matrix.png"
+  },
+  "external_evaluation_plantdoc": {
+    "note": "PlantDoc TEST split only (236 images). The model was fine-tuned on PlantDoc's TRAIN split, so the train portion is no longer external and is excluded.",
+    "num_images": 236,
+    "overall": {
+      "accuracy": 0.5720338983050848,
+      "macro_f1": 0.5443885162093728,
+      "accuracy_ci95": [
+        0.5084745762711864,
+        0.635593220338983
+      ],
+      "bootstrap_resamples": 2000
+    },
+    "mapping_confidence_tier_breakdown": {
+      "exact": {
+        "num_images": 119,
+        "accuracy": 0.5714285714285714,
+        "macro_f1": 0.5993267003771205
+      },
+      "convention": {
+        "num_images": 90,
+        "accuracy": 0.6333333333333333,
+        "macro_f1": 0.6428702116298024
+      },
+      "forced": {
+        "num_images": 27,
+        "accuracy": 0.37037037037037035,
+        "macro_f1": 0.51010101010101
+      }
+    },
+    "confidence_bands": {
+      "confident": {
+        "num_images": 108,
+        "share_of_photos": 0.4576271186440678,
+        "top1_accuracy": 0.8148148148148148,
+        "top3_accuracy": 0.9444444444444444
+      },
+      "possible": {
+        "num_images": 97,
+        "share_of_photos": 0.4110169491525424,
+        "top1_accuracy": 0.41237113402061853,
+        "top3_accuracy": 0.7525773195876289
+      },
+      "unrecognised": {
+        "num_images": 31,
+        "share_of_photos": 0.13135593220338984,
+        "top1_accuracy": 0.22580645161290322,
+        "top3_accuracy": 0.6129032258064516
+      }
+    }
+  },
+  "ood_rejection": {
+    "chosen_threshold": 0.9500000000000001,
+    "tuned_on": "validation split (in-distribution) + Intel negatives (out-of-distribution)",
+    "rejection_rate_on_negatives": 0.975,
+    "false_rejection_rate_on_genuine_leaves": 0.04431622882396268,
+    "num_val_samples": 8146,
+    "num_negative_samples": 3000,
+    "num_val_accepted_at_threshold": 7785,
+    "accuracy_on_accepted_val_samples": 0.9957610789980732,
+    "plantdoc_at_chosen_threshold": {
+      "population": "plantdoc_external_field_photos",
+      "num_samples": 236,
+      "rejection_rate": 0.5423728813559322,
+      "num_accepted": 108,
+      "accuracy_on_accepted": 0.8148148148148148,
+      "num_confident_wrong": 20,
+      "pct_confident_wrong": 0.0847457627118644,
+      "mean_confidence": 0.8137182593345642,
+      "median_confidence": 0.9316419959068298
+    },
+    "plantdoc_overall_accuracy_unfiltered": 0.5720338983050848,
+    "plantdoc_safety_note": "At threshold 0.95, 45.8% of PlantDoc images (108/236) are accepted, with accuracy on those accepted images at 81.5% \u2014 meaningfully above PlantDoc's overall unfiltered accuracy (57.2%), so the gate is providing some real filtering for correctness. This is still well below PlantVillage validation-split performance and should be reported as a partial, not complete, safeguard.",
+    "population_comparison_at_chosen_threshold": [
+      {
+        "population": "validation_in_distribution",
+        "num_samples": 8146,
+        "rejection_rate": 0.04431622882396268,
+        "num_accepted": 7785,
+        "accuracy_on_accepted": 0.9957610789980732,
+        "num_confident_wrong": 33,
+        "pct_confident_wrong": 0.004051068008838694,
+        "mean_confidence": 0.9891557693481445,
+        "median_confidence": 0.9999986886978149
+      },
+      {
+        "population": "intel_negatives_out_of_distribution",
+        "num_samples": 3000,
+        "rejection_rate": 0.975,
+        "num_accepted": 75,
+        "accuracy_on_accepted": null,
+        "num_confident_wrong": null,
+        "pct_confident_wrong": null,
+        "mean_confidence": 0.47128331661224365,
+        "median_confidence": 0.43089157342910767
+      },
+      {
+        "population": "plantdoc_external_field_photos",
+        "num_samples": 236,
+        "rejection_rate": 0.5423728813559322,
+        "num_accepted": 108,
+        "accuracy_on_accepted": 0.8148148148148148,
+        "num_confident_wrong": 20,
+        "pct_confident_wrong": 0.0847457627118644,
+        "mean_confidence": 0.8137182593345642,
+        "median_confidence": 0.9316419959068298
+      }
+    ],
+    "ood_threshold_sweep": {
+      "grid_step": 0.05,
+      "note": "Reporting only -- this sweep never influences chosen_threshold above; choose_threshold() only ever sees the validation split and Intel negatives. Each row's plantdoc.num_confident_wrong/pct_confident_wrong (accepted AND misclassified, as a fraction of ALL PlantDoc images) is the figure that matters for user safety: it shows where the app becomes safe only by rejecting nearly everything, versus where it still hands out confident wrong diagnoses.",
+      "rows": [
+        {
+          "threshold": 0.0,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0,
+            "num_accepted": 8146,
+            "accuracy_on_accepted": 0.9842867665111711,
+            "num_confident_wrong": 128,
+            "pct_confident_wrong": 0.015713233488828873,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.0,
+            "num_accepted": 3000,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.0,
+            "num_accepted": 236,
+            "accuracy_on_accepted": 0.5720338983050848,
+            "num_confident_wrong": 101,
+            "pct_confident_wrong": 0.4279661016949153,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.05,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0,
+            "num_accepted": 8146,
+            "accuracy_on_accepted": 0.9842867665111711,
+            "num_confident_wrong": 128,
+            "pct_confident_wrong": 0.015713233488828873,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.0,
+            "num_accepted": 3000,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.0,
+            "num_accepted": 236,
+            "accuracy_on_accepted": 0.5720338983050848,
+            "num_confident_wrong": 101,
+            "pct_confident_wrong": 0.4279661016949153,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.1,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0,
+            "num_accepted": 8146,
+            "accuracy_on_accepted": 0.9842867665111711,
+            "num_confident_wrong": 128,
+            "pct_confident_wrong": 0.015713233488828873,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.0006666666666666666,
+            "num_accepted": 2998,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.0,
+            "num_accepted": 236,
+            "accuracy_on_accepted": 0.5720338983050848,
+            "num_confident_wrong": 101,
+            "pct_confident_wrong": 0.4279661016949153,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.15000000000000002,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0,
+            "num_accepted": 8146,
+            "accuracy_on_accepted": 0.9842867665111711,
+            "num_confident_wrong": 128,
+            "pct_confident_wrong": 0.015713233488828873,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.012666666666666666,
+            "num_accepted": 2962,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.0,
+            "num_accepted": 236,
+            "accuracy_on_accepted": 0.5720338983050848,
+            "num_confident_wrong": 101,
+            "pct_confident_wrong": 0.4279661016949153,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.2,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0,
+            "num_accepted": 8146,
+            "accuracy_on_accepted": 0.9842867665111711,
+            "num_confident_wrong": 128,
+            "pct_confident_wrong": 0.015713233488828873,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.059333333333333335,
+            "num_accepted": 2822,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.0,
+            "num_accepted": 236,
+            "accuracy_on_accepted": 0.5720338983050848,
+            "num_confident_wrong": 101,
+            "pct_confident_wrong": 0.4279661016949153,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.25,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0,
+            "num_accepted": 8146,
+            "accuracy_on_accepted": 0.9842867665111711,
+            "num_confident_wrong": 128,
+            "pct_confident_wrong": 0.015713233488828873,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.144,
+            "num_accepted": 2568,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.00423728813559322,
+            "num_accepted": 235,
+            "accuracy_on_accepted": 0.574468085106383,
+            "num_confident_wrong": 100,
+            "pct_confident_wrong": 0.423728813559322,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.30000000000000004,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.00012275963663147557,
+            "num_accepted": 8145,
+            "accuracy_on_accepted": 0.9844076120319214,
+            "num_confident_wrong": 127,
+            "pct_confident_wrong": 0.015590473852197398,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.24066666666666667,
+            "num_accepted": 2278,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.012711864406779662,
+            "num_accepted": 233,
+            "accuracy_on_accepted": 0.5793991416309013,
+            "num_confident_wrong": 98,
+            "pct_confident_wrong": 0.4152542372881356,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.35000000000000003,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.00012275963663147557,
+            "num_accepted": 8145,
+            "accuracy_on_accepted": 0.9844076120319214,
+            "num_confident_wrong": 127,
+            "pct_confident_wrong": 0.015590473852197398,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.347,
+            "num_accepted": 1959,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.029661016949152543,
+            "num_accepted": 229,
+            "accuracy_on_accepted": 0.5895196506550219,
+            "num_confident_wrong": 94,
+            "pct_confident_wrong": 0.3983050847457627,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.4,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0003682789098944267,
+            "num_accepted": 8143,
+            "accuracy_on_accepted": 0.9845265872528552,
+            "num_confident_wrong": 126,
+            "pct_confident_wrong": 0.015467714215565921,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.443,
+            "num_accepted": 1671,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.05084745762711865,
+            "num_accepted": 224,
+            "accuracy_on_accepted": 0.5982142857142857,
+            "num_confident_wrong": 90,
+            "pct_confident_wrong": 0.3813559322033898,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.45,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0007365578197888534,
+            "num_accepted": 8140,
+            "accuracy_on_accepted": 0.9846437346437347,
+            "num_confident_wrong": 125,
+            "pct_confident_wrong": 0.015344954578934446,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.5336666666666666,
+            "num_accepted": 1399,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.06779661016949153,
+            "num_accepted": 220,
+            "accuracy_on_accepted": 0.6045454545454545,
+            "num_confident_wrong": 87,
+            "pct_confident_wrong": 0.3686440677966102,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.5,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0014731156395777069,
+            "num_accepted": 8134,
+            "accuracy_on_accepted": 0.9851241701499877,
+            "num_confident_wrong": 121,
+            "pct_confident_wrong": 0.014853916032408545,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.612,
+            "num_accepted": 1164,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.13135593220338984,
+            "num_accepted": 205,
+            "accuracy_on_accepted": 0.624390243902439,
+            "num_confident_wrong": 77,
+            "pct_confident_wrong": 0.326271186440678,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.55,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.004787625828627547,
+            "num_accepted": 8107,
+            "accuracy_on_accepted": 0.9868015295423708,
+            "num_confident_wrong": 107,
+            "pct_confident_wrong": 0.013135281119567885,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.6806666666666666,
+            "num_accepted": 958,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.17372881355932204,
+            "num_accepted": 195,
+            "accuracy_on_accepted": 0.6410256410256411,
+            "num_confident_wrong": 70,
+            "pct_confident_wrong": 0.2966101694915254,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.6000000000000001,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.007365578197888534,
+            "num_accepted": 8086,
+            "accuracy_on_accepted": 0.9877566163739797,
+            "num_confident_wrong": 99,
+            "pct_confident_wrong": 0.012153204026516082,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.7366666666666667,
+            "num_accepted": 790,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.2288135593220339,
+            "num_accepted": 182,
+            "accuracy_on_accepted": 0.6703296703296703,
+            "num_confident_wrong": 60,
+            "pct_confident_wrong": 0.2542372881355932,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.65,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.009575251657255094,
+            "num_accepted": 8068,
+            "accuracy_on_accepted": 0.9889687654933069,
+            "num_confident_wrong": 89,
+            "pct_confident_wrong": 0.010925607660201326,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.7916666666666666,
+            "num_accepted": 625,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.2627118644067797,
+            "num_accepted": 174,
+            "accuracy_on_accepted": 0.6954022988505747,
+            "num_confident_wrong": 53,
+            "pct_confident_wrong": 0.2245762711864407,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.7000000000000001,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.012889761846304935,
+            "num_accepted": 8041,
+            "accuracy_on_accepted": 0.9902997139659246,
+            "num_confident_wrong": 78,
+            "pct_confident_wrong": 0.009575251657255094,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.8366666666666667,
+            "num_accepted": 490,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.2923728813559322,
+            "num_accepted": 167,
+            "accuracy_on_accepted": 0.7125748502994012,
+            "num_confident_wrong": 48,
+            "pct_confident_wrong": 0.2033898305084746,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.75,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.015958752762091823,
+            "num_accepted": 8016,
+            "accuracy_on_accepted": 0.9911427145708582,
+            "num_confident_wrong": 71,
+            "pct_confident_wrong": 0.008715934200834765,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.8773333333333333,
+            "num_accepted": 368,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.3347457627118644,
+            "num_accepted": 157,
+            "accuracy_on_accepted": 0.7197452229299363,
+            "num_confident_wrong": 44,
+            "pct_confident_wrong": 0.1864406779661017,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.8,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.020132580407561995,
+            "num_accepted": 7982,
+            "accuracy_on_accepted": 0.9921072412929091,
+            "num_confident_wrong": 63,
+            "pct_confident_wrong": 0.007733857107782961,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.9073333333333333,
+            "num_accepted": 278,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.3728813559322034,
+            "num_accepted": 148,
+            "accuracy_on_accepted": 0.7162162162162162,
+            "num_confident_wrong": 42,
+            "pct_confident_wrong": 0.17796610169491525,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.8500000000000001,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.025656764055978394,
+            "num_accepted": 7937,
+            "accuracy_on_accepted": 0.9933224140103314,
+            "num_confident_wrong": 53,
+            "pct_confident_wrong": 0.006506260741468205,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.9283333333333333,
+            "num_accepted": 215,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.4152542372881356,
+            "num_accepted": 138,
+            "accuracy_on_accepted": 0.7391304347826086,
+            "num_confident_wrong": 36,
+            "pct_confident_wrong": 0.15254237288135594,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.9,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.0316719862509207,
+            "num_accepted": 7888,
+            "accuracy_on_accepted": 0.9945486815415822,
+            "num_confident_wrong": 43,
+            "pct_confident_wrong": 0.00527866437515345,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.9523333333333334,
+            "num_accepted": 143,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.4449152542372881,
+            "num_accepted": 131,
+            "accuracy_on_accepted": 0.7633587786259542,
+            "num_confident_wrong": 31,
+            "pct_confident_wrong": 0.13135593220338984,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 0.9500000000000001,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.04431622882396268,
+            "num_accepted": 7785,
+            "accuracy_on_accepted": 0.9957610789980732,
+            "num_confident_wrong": 33,
+            "pct_confident_wrong": 0.004051068008838694,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 0.975,
+            "num_accepted": 75,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.5423728813559322,
+            "num_accepted": 108,
+            "accuracy_on_accepted": 0.8148148148148148,
+            "num_confident_wrong": 20,
+            "pct_confident_wrong": 0.0847457627118644,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        },
+        {
+          "threshold": 1.0,
+          "validation": {
+            "population": "validation_in_distribution",
+            "num_samples": 8146,
+            "rejection_rate": 0.6523447090596611,
+            "num_accepted": 2832,
+            "accuracy_on_accepted": 1.0,
+            "num_confident_wrong": 0,
+            "pct_confident_wrong": 0.0,
+            "mean_confidence": 0.9891557693481445,
+            "median_confidence": 0.9999986886978149
+          },
+          "intel_negatives": {
+            "population": "intel_negatives_out_of_distribution",
+            "num_samples": 3000,
+            "rejection_rate": 1.0,
+            "num_accepted": 0,
+            "accuracy_on_accepted": null,
+            "num_confident_wrong": null,
+            "pct_confident_wrong": null,
+            "mean_confidence": 0.47128331661224365,
+            "median_confidence": 0.43089157342910767
+          },
+          "plantdoc": {
+            "population": "plantdoc_external_field_photos",
+            "num_samples": 236,
+            "rejection_rate": 0.9745762711864406,
+            "num_accepted": 6,
+            "accuracy_on_accepted": 1.0,
+            "num_confident_wrong": 0,
+            "pct_confident_wrong": 0.0,
+            "mean_confidence": 0.8137182593345642,
+            "median_confidence": 0.9316419959068298
+          }
+        }
+      ]
+    },
+    "android_model_metadata_path": "/kaggle/working/pg/android/app/src/main/assets/model_metadata.json"
+  },
+  "robustness": {
+    "blur": {
+      "1": {
+        "macro_f1": 0.9829996534120757,
+        "params": {
+          "value": 1.0
+        }
+      },
+      "2": {
+        "macro_f1": 0.9683587588165977,
+        "params": {
+          "value": 2.0
+        }
+      },
+      "3": {
+        "macro_f1": 0.9457305703507491,
+        "params": {
+          "value": 3.0
+        }
+      }
+    },
+    "gaussian_noise": {
+      "1": {
+        "macro_f1": 0.9632009846284556,
+        "params": {
+          "value": 0.05
+        }
+      },
+      "2": {
+        "macro_f1": 0.9165276119250308,
+        "params": {
+          "value": 0.1
+        }
+      },
+      "3": {
+        "macro_f1": 0.33772256408523593,
+        "params": {
+          "value": 0.2
+        }
+      }
+    },
+    "brightness_up": {
+      "1": {
+        "macro_f1": 0.9792499630319389,
+        "params": {
+          "value": 0.1
+        }
+      },
+      "2": {
+        "macro_f1": 0.9789593723385114,
+        "params": {
+          "value": 0.2
+        }
+      },
+      "3": {
+        "macro_f1": 0.9732257466249369,
+        "params": {
+          "value": 0.35
+        }
+      }
+    },
+    "brightness_down": {
+      "1": {
+        "macro_f1": 0.980777704801152,
+        "params": {
+          "value": 0.1
+        }
+      },
+      "2": {
+        "macro_f1": 0.9755274686275263,
+        "params": {
+          "value": 0.2
+        }
+      },
+      "3": {
+        "macro_f1": 0.9372840161879873,
+        "params": {
+          "value": 0.35
+        }
+      }
+    },
+    "rotation": {
+      "1": {
+        "macro_f1": 0.9830646498835853,
+        "params": {
+          "value": 10.0
+        }
+      },
+      "2": {
+        "macro_f1": 0.9831040131792331,
+        "params": {
+          "value": 20.0
+        }
+      },
+      "3": {
+        "macro_f1": 0.9789513089613042,
+        "params": {
+          "value": 30.0
+        }
+      }
+    },
+    "jpeg_compression": {
+      "1": {
+        "macro_f1": 0.9693346661794479,
+        "params": {
+          "value": 50
+        }
+      },
+      "2": {
+        "macro_f1": 0.9744188516415658,
+        "params": {
+          "value": 30
+        }
+      },
+      "3": {
+        "macro_f1": 0.875130147322307,
+        "params": {
+          "value": 10
+        }
+      }
+    }
+  },
+  "baseline_before_finetune": {
+    "plantdoc_test_accuracy": 0.2585,
+    "plantdoc_test_macro_f1": 0.235,
+    "plantvillage_test_accuracy": 0.9659,
+    "plantvillage_test_macro_f1": 0.9613,
+    "ood_threshold": 0.98
+  }
+}
