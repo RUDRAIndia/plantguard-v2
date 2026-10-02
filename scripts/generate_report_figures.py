@@ -10,12 +10,20 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+# Stage 1 — four models trained on PlantVillage only. Figure 1 comes from here.
 REPO = pathlib.Path(__file__).resolve().parent.parent
-RESULTS = REPO / "artifacts" / "results.json"
+# Stage 1 — four models trained on PlantVillage only. Figure 1 comes from here.
+STAGE1 = REPO / "artifacts" / "results.json"
+# Stage 2 — the selected model fine-tuned on PlantDoc's train split. Every
+# other figure comes from here: the stage-1 numbers are a correct record of a
+# model that is no longer deployed.
+STAGE2 = REPO / "artifacts" / "results_finetuned.json"
 OUT_DIR = REPO / "artifacts" / "figures" / "report"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-with open(RESULTS, "r", encoding="utf-8") as f:
+with open(STAGE1, "r", encoding="utf-8") as f:
+    stage1 = json.load(f)
+with open(STAGE2, "r", encoding="utf-8") as f:
     data = json.load(f)
 
 # Colourblind-safe palette
@@ -28,7 +36,7 @@ plt.rcParams.update({
 
 print("Loaded results.json. Keys:", list(data.keys()))
 # --- Figure 1: four-model comparison bar chart ---
-ranking = data["model_selection"]["ranking"]
+ranking = stage1["model_selection"]["ranking"]
 names = [m["model_name"] for m in ranking]
 f1_scores = [m["val_macro_f1"] for m in ranking]
 params = [m["param_count"] for m in ranking]
@@ -199,7 +207,10 @@ print("Wrote fig6_confused_pairs.png")
 # --- report_tables.md: every table as markdown, pasteable into the report ---
 lines = []
 lines.append("# PlantGuard Report Tables\n")
-lines.append(f"_Generated from results.json (commit `{data['git_commit_hash']}`)_\n")
+lines.append(f"_Figure 1 from results.json (stage 1: four models, PlantVillage only). "
+             f"All other figures and tables from results_finetuned.json "
+             f"(stage 2: selected model fine-tuned on PlantDoc train), "
+             f"commit `{data['git_commit_hash']}`._\n")
 
 lines.append("## Table 1: Model comparison\n")
 lines.append("| Model | Val macro-F1 | Params | Checkpoint size |")
@@ -209,7 +220,10 @@ for m in ranking:
     lines.append(f"| {m['model_name']} | {m['val_macro_f1']:.4f} | {m['param_count']:,} | {size_mb:.1f} MB |")
 lines.append("")
 
-lines.append("## Table 2: PlantVillage test set vs PlantDoc field set\n")
+lines.append("## Table 2: PlantVillage test set vs PlantDoc field test split\n")
+lines.append("_PlantDoc figures are its official 236-image test split only. The "
+             "model was fine-tuned on PlantDoc's train split, so that portion is "
+             "no longer external and is excluded._\n")
 lines.append("| Metric | PlantVillage (test) | PlantDoc (field) |")
 lines.append("|---|---|---|")
 lines.append(f"| Accuracy | {data['test_evaluation']['accuracy']:.4f} | {data['external_evaluation_plantdoc']['overall']['accuracy']:.4f} |")
@@ -251,19 +265,48 @@ for p in pairs:
     lines.append(f"| {p['true_class']} | {p['predicted_class']} | {p['count']} | {p['rate_of_true_class']*100:.1f}% |")
 lines.append("")
 
-lines.append("## Calibration\n")
-cal = data["calibration"]
-lines.append(f"- Temperature: {cal['temperature']:.2f}")
-lines.append(f"- Test ECE before: {cal['test_ece_before']:.4f}")
-lines.append(f"- Test ECE after: {cal['test_ece_after']:.4f}")
-lines.append("")
+# Calibration is omitted: temperature scaling was fitted for the stage-1 model
+# (T=1.36, ECE 0.0099 -> 0.0086) and the deployed fine-tuned model does not use
+# it. Quoting a stale temperature would misdescribe the shipped model.
 
-lines.append("## OOD rejection at deployed threshold (0.98)\n")
 ood = data["ood_rejection"]
-lines.append(f"- Deployed threshold: {ood['chosen_threshold']}")
-lines.append(f"- PlantDoc rejection rate: {ood['plantdoc_at_chosen_threshold'].get('rejection_rate', 'see JSON')}")
+thr = round(ood["chosen_threshold"], 2)
+lines.append(f"## OOD rejection at deployed threshold ({thr})\n")
+lines.append(f"- Deployed threshold: {thr}")
+pd_ood = ood["plantdoc_at_chosen_threshold"]
+lines.append(f"- PlantDoc rejection rate: {pd_ood['rejection_rate']:.4f}")
+lines.append(f"- PlantDoc accepted: {pd_ood['num_accepted']}")
+lines.append(f"- Accuracy on accepted: {pd_ood['accuracy_on_accepted']:.4f}")
+lines.append(f"- Confident-wrong: {pd_ood['num_confident_wrong']} "
+             f"({pd_ood['pct_confident_wrong']*100:.1f}% of PlantDoc test)")
 lines.append("")
 
+lines.append("## Confidence bands (PlantDoc test)\n")
+lines.append("| Band | Images | Share | Top-1 | Top-3 |")
+lines.append("|---|---|---|---|---|")
+for name, b in data["external_evaluation_plantdoc"]["confidence_bands"].items():
+    lines.append(f"| {name} | {b['num_images']} | {b['share_of_photos']*100:.1f}% | "
+                 f"{b['top1_accuracy']:.4f} | {b['top3_accuracy']:.4f} |")
+lines.append("")
+
+lines.append("## Before vs after fine-tuning\n")
+base = data["baseline_before_finetune"]
+ext = data["external_evaluation_plantdoc"]["overall"]
+lines.append("| Metric | Before | After |")
+lines.append("|---|---|---|")
+lines.append(f"| PlantVillage test accuracy | {base['plantvillage_test_accuracy']:.4f} | "
+             f"{data['test_evaluation']['accuracy']:.4f} |")
+lines.append(f"| PlantVillage test macro-F1 | {base['plantvillage_test_macro_f1']:.4f} | "
+             f"{data['test_evaluation']['macro_f1']:.4f} |")
+lines.append(f"| PlantDoc test accuracy | {base['plantdoc_test_accuracy']:.4f} | "
+             f"{ext['accuracy']:.4f} |")
+lines.append(f"| PlantDoc test macro-F1 | {base['plantdoc_test_macro_f1']:.4f} | "
+             f"{ext['macro_f1']:.4f} |")
+lines.append(f"| OOD threshold | {base['ood_threshold']} | {thr} |")
+lines.append("")
+lines.append(f"PlantDoc accuracy 95% CI: [{ext['accuracy_ci95'][0]:.4f}, "
+             f"{ext['accuracy_ci95'][1]:.4f}] ({ext['bootstrap_resamples']} bootstrap resamples)")
+lines.append("")
 with open(REPO / "artifacts" / "report_tables.md", "w", encoding="utf-8") as f:
     f.write("\n".join(lines))
 print("Wrote artifacts/report_tables.md")
